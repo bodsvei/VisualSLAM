@@ -257,10 +257,48 @@ def run(args):
     traj_plotter = TrajectoryPlot(figsize=(500, 400))
     show_gui     = not args.no_gui
 
+    # ── Standalone ORB tracker (mirrors orb.py) ────────────────────── #
+    orb_detector = cv2.ORB_create(nfeatures=1000)
+    orb_matcher  = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+    orb_prev_frame: np.ndarray | None = None
+    orb_prev_kp                        = None
+    orb_prev_des                       = None
+
     print("\nRunning VO. Press 'q' to quit, 's' to save trajectory.\n")
 
     for frame, fid in source:
         stats = vo.process(frame, timestamp=fid / 30.0)
+
+        # ── ORB feature tracking display (like orb.py) ─────────────── #
+        curr_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        curr_kp, curr_des = orb_detector.detectAndCompute(curr_gray, None)
+
+        if show_gui and orb_prev_des is not None and curr_des is not None \
+                and len(orb_prev_des) > 0 and len(curr_des) > 0:
+            matches = orb_matcher.knnMatch(orb_prev_des, curr_des, k=2)
+            good_matches = [
+                m for m_n in matches if len(m_n) == 2
+                for m, n in [m_n] if m.distance < 0.75 * n.distance
+            ]
+            orb_display = cv2.drawMatches(
+                orb_prev_frame, orb_prev_kp,
+                frame,          curr_kp,
+                good_matches,   None,
+                matchColor      = (0, 255, 0),
+                flags           = cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS,
+            )
+            # Stamp match count so it's easy to read at a glance
+            cv2.putText(
+                orb_display,
+                f"Matches: {len(good_matches)}  |  Frame {fid}",
+                (10, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2,
+            )
+            cv2.imshow("ORB Tracking  (Left: prev  |  Right: curr)", orb_display)
+
+        # Advance ORB state for next iteration
+        orb_prev_frame = frame.copy()
+        orb_prev_kp    = curr_kp
+        orb_prev_des   = curr_des
 
         if show_gui:
             # Camera feed with HUD

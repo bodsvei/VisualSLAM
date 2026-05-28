@@ -56,6 +56,7 @@ python demo.py --no-gui --output traj.png
 
 ## Testing on KITTI — Step by Step
 
+
 ### Step 1 — Download the dataset
 
 Go to: **http://www.cvlibs.net/datasets/kitti/eval_odometry.php**
@@ -74,7 +75,9 @@ kitti/
     ├── 00.txt
     └── ... (ground truth SE3 poses)
 ```
-
+>Note:
+>When you download the KITTI dataset directly using your browser, the browser downloads the 22GB dataset using 1 TCP connection, conservative buffering, poor retry behavior, and no chunk parallelization. You can try ```aria2c``` which splits the file into many chunks, downloads chunks simultaneously, reconnects aggressively, and keeps all bandwidth busy.
+>
 ### Step 2 — Run the KITTI evaluation script
 
 We have provided `run_kitti.py` to process the dataset and export poses. Update the `KITTI_ROOT` variable in the script to point to your dataset directory.

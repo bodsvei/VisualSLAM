@@ -328,21 +328,23 @@ class VisualOdometry:
     ) -> FrameStats:
 
         kf = self._last_kf
+        prev_feats = self._last_features
 
         # ── 1. Detect / track features ──────────────────────────────── #
         cur_feats = self.detector.detect_and_compute(gray)
         stats.num_detected = len(cur_feats)
 
-        match_result = self.matcher.match(kf.features, cur_feats)
-        stats.num_matched = len(match_result)
+        # Match against PREVIOUS frame for pure Odometry
+        match_prev = self.matcher.match(prev_feats, cur_feats)
+        stats.num_matched = len(match_prev)
 
-        if len(match_result) < self.cfg.min_inliers:
+        if len(match_prev) < self.cfg.min_inliers:
             self.state = VOState.LOST
             return stats
 
-        # ── 2. Estimate relative pose ────────────────────────────────── #
+        # ── 2. Estimate relative pose (prev -> cur) ──────────────────── #
         pose: PoseEstimate = self.estimator.estimate(
-            match_result.pts_ref, match_result.pts_cur
+            match_prev.pts_ref, match_prev.pts_cur
         )
         stats.num_inliers = pose.num_inliers
         stats.h_score     = pose.H_score
@@ -355,46 +357,59 @@ class VisualOdometry:
         scale = self._recover_scale(pose)
 
         # ── 4. Compose absolute pose ─────────────────────────────────── #
-        R_cur_ref = pose.R.T
-        t_cur_ref = -(pose.R.T @ (pose.t.ravel() * scale))
+        R_cur_prev = pose.R.T
+        t_cur_prev = -(pose.R.T @ (pose.t.ravel() * scale))
 
         T_rel = np.eye(4)
-        T_rel[:3, :3] = R_cur_ref
-        T_rel[:3,  3] = t_cur_ref
+        T_rel[:3, :3] = R_cur_prev
+        T_rel[:3,  3] = t_cur_prev
 
         self.T_world_cam = compose_pose(self.T_world_cam, T_rel)
         self.pose_graph.add(self.T_world_cam)
 
-        # ── 5. Triangulate new map points ────────────────────────────── #
-        inlier_mask        = pose.inlier_mask
-        inlier_ref         = match_result.pts_ref[inlier_mask]
-        inlier_cur         = match_result.pts_cur[inlier_mask]
-        inlier_idx_ref     = match_result.idx_ref[inlier_mask]
-        inlier_idx_cur     = match_result.idx_cur[inlier_mask]
-
-        T_kf_world  = kf.T_cam_world
-        T_cur_world = invert_pose(self.T_world_cam)
-
-        new_mps, _ = self.triangulator.triangulate(
-            T_ref_world = T_kf_world,
-            T_cur_world = T_cur_world,
-            pts_ref     = inlier_ref,
-            pts_cur     = inlier_cur,
-            idx_ref     = inlier_idx_ref,
-            idx_cur     = inlier_idx_cur,
-            descriptors = kf.features.descriptors,
+        # ── 5. Match against KEYFRAME for Triangulation ──────────────── #
+        match_kf = self.matcher.match(kf.features, cur_feats)
+        
+        kf_pose: PoseEstimate = self.estimator.estimate(
+            match_kf.pts_ref, match_kf.pts_cur
         )
-        self.map_points.extend(new_mps)
-        stats.num_map_pts = len(self.map_points)
 
-        # ── 6. Keyframe check ────────────────────────────────────────── #
-        do_kf, kf_reason = self.kf_selector.should_insert(
-            last_kf     = kf,
-            R_rel       = pose.R,
-            pts_ref     = inlier_ref,
-            pts_cur     = inlier_cur,
-            num_tracked = pose.num_inliers,
-        )
+        new_mps = []
+        if kf_pose.success:
+            inlier_mask        = kf_pose.inlier_mask
+            inlier_ref         = match_kf.pts_ref[inlier_mask]
+            inlier_cur         = match_kf.pts_cur[inlier_mask]
+            inlier_idx_ref     = match_kf.idx_ref[inlier_mask]
+            inlier_idx_cur     = match_kf.idx_cur[inlier_mask]
+
+            T_kf_world  = kf.T_cam_world
+            T_cur_world = invert_pose(self.T_world_cam)
+
+            new_mps, _ = self.triangulator.triangulate(
+                T_ref_world = T_kf_world,
+                T_cur_world = T_cur_world,
+                pts_ref     = inlier_ref,
+                pts_cur     = inlier_cur,
+                idx_ref     = inlier_idx_ref,
+                idx_cur     = inlier_idx_cur,
+                descriptors = kf.features.descriptors,
+            )
+            self.map_points.extend(new_mps)
+            stats.num_map_pts = len(self.map_points)
+
+            # ── 6. Keyframe check ────────────────────────────────────────── #
+            do_kf, kf_reason = self.kf_selector.should_insert(
+                last_kf     = kf,
+                R_rel       = kf_pose.R,
+                pts_ref     = inlier_ref,
+                pts_cur     = inlier_cur,
+                num_tracked = kf_pose.num_inliers,
+            )
+        else:
+            # If KF tracking drops, insert a new KF to prevent losing track
+            do_kf = True
+            kf_reason = "lost_kf_track"
+
         stats.is_keyframe = do_kf
         stats.kf_reason   = kf_reason
 

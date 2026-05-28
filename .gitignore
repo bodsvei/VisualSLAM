@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Datasets
+data/
+datasets/
+KITTI/
+
+# Outputs
+results/
+logs/
+*.mp4
+*.png
+
+# Models
+*.pth
+*.pt
+*.onnx
+
+# Mac
+.DS_Store

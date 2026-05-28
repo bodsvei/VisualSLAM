@@ -173,8 +173,8 @@ class TrajectoryPlot:
         self,
         figsize    : Tuple[int, int] = (600, 600),
         point_size : float = 0.5,
-        traj_color : str   = "#00e676",
-        kf_color   : str   = "#ff5722",
+        traj_color : str   = "red",
+        kf_color   : str   = "white",
     ):
         self.fig_w, self.fig_h = figsize
         self.point_size = point_size
@@ -190,8 +190,8 @@ class TrajectoryPlot:
     ) -> np.ndarray:
         """Top-down 2-D trajectory plot. Returns BGR image."""
         fig, ax = plt.subplots(figsize=(self.fig_w/100, self.fig_h/100), dpi=100)
-        fig.patch.set_facecolor("#1a1a2e")
-        ax.set_facecolor("#16213e")
+        fig.patch.set_facecolor("black")
+        ax.set_facecolor("black")
 
         ix, iy = _axis_indices(axes)
 
@@ -199,27 +199,56 @@ class TrajectoryPlot:
         if map_points:
             mp_xyz = np.array([mp.xyz for mp in map_points])
             ax.scatter(mp_xyz[:, ix], mp_xyz[:, iy],
-                       s=self.point_size, c="#546e7a", alpha=0.4, linewidths=0)
+                       s=self.point_size, c="yellow", alpha=0.5, linewidths=0)
 
         # Trajectory
         if len(trajectory) > 1:
             ax.plot(trajectory[:, ix], trajectory[:, iy],
-                    color=self.traj_color, linewidth=1.2, alpha=0.9, label="Trajectory")
+                    color=self.traj_color, linewidth=2.0, alpha=1.0, label="Trajectory")
+            # Current position
             ax.scatter(trajectory[-1, ix], trajectory[-1, iy],
-                       c=self.traj_color, s=40, zorder=5)
+                       c="white", s=40, zorder=5)
+            # Start position
+            ax.scatter(trajectory[0, ix], trajectory[0, iy],
+                       c='white', marker='s', s=30, zorder=6, label="Start")
 
-        # Keyframe positions
+        # Keyframe positions (Camera frustums/arrows)
         if keyframes:
-            kf_pos = np.array([kf.position for kf in keyframes])
-            ax.scatter(kf_pos[:, ix], kf_pos[:, iy],
-                       c=self.kf_color, s=20, zorder=4, label="Keyframes")
+            pos_x = [kf.T_world_cam[ix, 3] for kf in keyframes]
+            pos_y = [kf.T_world_cam[iy, 3] for kf in keyframes]
+            
+            # Compute smoothed direction tangent to the path
+            dir_x = []
+            dir_y = []
+            N = len(keyframes)
+            for i in range(N):
+                i_prev = max(0, i - 3)
+                i_next = min(N - 1, i + 3)
+                
+                dx = keyframes[i_next].T_world_cam[ix, 3] - keyframes[i_prev].T_world_cam[ix, 3]
+                dy = keyframes[i_next].T_world_cam[iy, 3] - keyframes[i_prev].T_world_cam[iy, 3]
+                
+                if dx == 0 and dy == 0:
+                    dx, dy = 0.0, 1.0
+                
+                # Normalize
+                length = max(np.hypot(dx, dy), 1e-6)
+                dir_x.append(dx / length)
+                dir_y.append(dy / length)
+            
+            ax.quiver(pos_x, pos_y, dir_x, dir_y, color=self.kf_color,
+                      scale=30, width=0.003, headwidth=4, headlength=4, 
+                      pivot='tail', zorder=4, alpha=0.9, label="Keyframes", angles='xy')
 
-        ax.set_xlabel(axes[0].upper(), color="white")
-        ax.set_ylabel(axes[1].upper(), color="white")
+        ax.set_xlabel(axes[0].upper(), color="white", weight='bold')
+        ax.set_ylabel(axes[1].upper(), color="white", weight='bold')
         ax.tick_params(colors="white")
-        ax.spines[:].set_color("#333")
-        ax.set_title("VO Trajectory", color="white", fontsize=10)
-        ax.legend(fontsize=7, facecolor="#1a1a2e", labelcolor="white")
+        ax.spines[:].set_color("white")
+        ax.grid(color='white', linestyle='--', linewidth=0.5, alpha=0.2)
+        ax.set_aspect('equal', adjustable='datalim')
+        
+        ax.set_title("VO Trajectory", color="white", fontsize=11, weight='bold')
+        ax.legend(fontsize=8, facecolor="black", labelcolor="white", loc='lower right', edgecolor="white")
         fig.tight_layout(pad=0.5)
 
         img = _fig_to_bgr(fig)
@@ -234,29 +263,33 @@ class TrajectoryPlot:
     ) -> np.ndarray:
         """3-D trajectory plot. Returns BGR image."""
         fig = plt.figure(figsize=(self.fig_w/100, self.fig_h/100), dpi=100)
-        fig.patch.set_facecolor("#1a1a2e")
+        fig.patch.set_facecolor("black")
         ax = fig.add_subplot(111, projection="3d")
-        ax.set_facecolor("#16213e")
+        ax.set_facecolor("black")
 
         if map_points:
             mp_xyz = np.array([mp.xyz for mp in map_points])
             ax.scatter(mp_xyz[:, 0], mp_xyz[:, 1], mp_xyz[:, 2],
-                       s=self.point_size, c="#546e7a", alpha=0.3)
+                       s=self.point_size, c="yellow", alpha=0.3)
 
         if len(trajectory) > 1:
             ax.plot(trajectory[:, 0], trajectory[:, 1], trajectory[:, 2],
-                    color=self.traj_color, linewidth=1.5)
-            ax.scatter(*trajectory[-1], c=self.traj_color, s=60)
+                    color="red", linewidth=2.0)
+            ax.scatter(*trajectory[-1], c="white", s=60)
 
         if keyframes:
             kf_pos = np.array([kf.position for kf in keyframes])
             ax.scatter(kf_pos[:, 0], kf_pos[:, 1], kf_pos[:, 2],
-                       c=self.kf_color, s=25)
+                       c="white", s=25)
 
         ax.set_xlabel("X", color="white")
         ax.set_ylabel("Y", color="white")
         ax.set_zlabel("Z", color="white")
         ax.set_title("VO Trajectory 3D", color="white")
+
+        ax.xaxis.set_pane_color((0.0, 0.0, 0.0, 1.0))
+        ax.yaxis.set_pane_color((0.0, 0.0, 0.0, 1.0))
+        ax.zaxis.set_pane_color((0.0, 0.0, 0.0, 1.0))
 
         fig.tight_layout()
         img = _fig_to_bgr(fig)
@@ -358,42 +391,73 @@ def plot_trajectory_static(
     Returns the Figure (caller can show or save).
     """
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
-    fig.patch.set_facecolor("#1a1a2e")
+    fig.patch.set_facecolor("black")
 
     for ax, (ix, iy, xlabel, ylabel) in [
         (ax1, (0, 2, "X (m)", "Z (m)")),
         (ax2, (0, 1, "X (m)", "Y (m)")),
     ]:
-        ax.set_facecolor("#16213e")
+        ax.set_facecolor("black")
         ax.tick_params(colors="white")
-        ax.set_xlabel(xlabel, color="white")
-        ax.set_ylabel(ylabel, color="white")
+        ax.set_xlabel(xlabel, color="white", weight='bold')
+        ax.set_ylabel(ylabel, color="white", weight='bold')
+        ax.grid(color='white', linestyle='--', linewidth=0.5, alpha=0.2)
+        ax.set_aspect('equal', adjustable='datalim')
+
         for spine in ax.spines.values():
-            spine.set_color("#444")
+            spine.set_color("white")
 
         if map_points:
             mp_xyz = np.array([mp.xyz for mp in map_points])
             ax.scatter(mp_xyz[:, ix], mp_xyz[:, iy],
-                       s=0.3, c="#546e7a", alpha=0.3)
+                       s=0.5, c="yellow", alpha=0.4, linewidths=0)
 
         if len(trajectory) > 1:
             ax.plot(trajectory[:, ix], trajectory[:, iy],
-                    color="#00e676", linewidth=1.5, label="Trajectory")
+                    color="red", linewidth=2.0, alpha=1.0, label="Trajectory")
+            # Start position
+            ax.scatter(trajectory[0, ix], trajectory[0, iy],
+                       c='white', marker='s', s=30, zorder=6, label="Start")
+            # Current position
+            ax.scatter(trajectory[-1, ix], trajectory[-1, iy],
+                       c="white", s=40, zorder=5)
 
         if keyframes:
-            kf_pos = np.array([kf.position for kf in keyframes])
-            ax.scatter(kf_pos[:, ix], kf_pos[:, iy],
-                       c="#ff5722", s=15, zorder=5, label="Keyframes")
+            pos_x = [kf.T_world_cam[ix, 3] for kf in keyframes]
+            pos_y = [kf.T_world_cam[iy, 3] for kf in keyframes]
+            
+            # Compute smoothed direction tangent to the path
+            dir_x = []
+            dir_y = []
+            N = len(keyframes)
+            for i in range(N):
+                i_prev = max(0, i - 3)
+                i_next = min(N - 1, i + 3)
+                
+                dx = keyframes[i_next].T_world_cam[ix, 3] - keyframes[i_prev].T_world_cam[ix, 3]
+                dy = keyframes[i_next].T_world_cam[iy, 3] - keyframes[i_prev].T_world_cam[iy, 3]
+                
+                if dx == 0 and dy == 0:
+                    dx, dy = 0.0, 1.0
+                
+                # Normalize
+                length = max(np.hypot(dx, dy), 1e-6)
+                dir_x.append(dx / length)
+                dir_y.append(dy / length)
+            
+            ax.quiver(pos_x, pos_y, dir_x, dir_y, color="white",
+                      scale=30, width=0.003, headwidth=4, headlength=4, 
+                      pivot='tail', zorder=4, alpha=0.9, label="Keyframes", angles='xy')
 
-        ax.legend(fontsize=8, facecolor="#1a1a2e", labelcolor="white")
+        ax.legend(fontsize=9, facecolor="black", labelcolor="white", loc='lower right', edgecolor="white")
 
-    ax1.set_title("Top-down  (X–Z)", color="white")
-    ax2.set_title("Front     (X–Y)", color="white")
-    fig.suptitle(title, color="white", fontsize=13)
+    ax1.set_title("Top-down (X–Z)", color="white", fontsize=12, weight='bold')
+    ax2.set_title("Front (X–Y)", color="white", fontsize=12, weight='bold')
+    fig.suptitle(title, color="white", fontsize=14, weight='bold')
     fig.tight_layout()
 
     if save_path:
-        fig.savefig(save_path, dpi=120, bbox_inches="tight",
+        fig.savefig(save_path, dpi=150, bbox_inches="tight",
                     facecolor=fig.get_facecolor())
     return fig
 

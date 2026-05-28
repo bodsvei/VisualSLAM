@@ -7,7 +7,7 @@ Calibrates a camera using a chessboard pattern to find:
   - Per-image reprojection error
 
 Usage:
-    python3 camera_calibration.py --images ./calib_images --rows 8 --cols 12 --square 20.0 --show --undistort
+    python3 camera_calibration.py --images ./calib_images --rows 9 --cols 13 --square 20.0 --show --undistort
 
     --images   : folder containing calibration images (JPG/PNG)
     --rows     : number of INNER corners along rows (default: 6)
