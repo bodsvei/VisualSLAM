@@ -1,0 +1,10 @@
+evo_ape kitti KITTI/poses/00.txt results_00.txt \
+    --plot_mode xz \
+    --save_plot ./results/STAGE-3/ate.pdf \
+    --save_results ./results/STAGE-3/ate.zip
+evo_rpe kitti KITTI/poses/00.txt results_00.txt \
+    --delta 100 --delta_unit m \
+    --plot_mode xz --save_plot ./results/STAGE-3/rpe.pdf
+evo_traj kitti KITTI/poses/00.txt results_00.txt \
+    --ref KITTI/poses/00.txt \
+    --plot_mode xz --save_plot ./results/STAGE-3/traj.pdf

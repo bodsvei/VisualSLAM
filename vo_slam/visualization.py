@@ -171,10 +171,10 @@ class TrajectoryPlot:
 
     def __init__(
         self,
-        figsize    : Tuple[int, int] = (600, 600),
-        point_size : float = 0.5,
+        figsize    : Tuple[int, int] = (1200, 1200),   # hi-res live panel
+        point_size : float = 0.8,
         traj_color : str   = "red",
-        kf_color   : str   = "white",
+        kf_color   : str   = "#4A90D9",                # blue keyframe dots
     ):
         self.fig_w, self.fig_h = figsize
         self.point_size = point_size
@@ -189,7 +189,7 @@ class TrajectoryPlot:
         axes       : str            = "xz",   # which axes to plot
     ) -> np.ndarray:
         """Top-down 2-D trajectory plot. Returns BGR image."""
-        fig, ax = plt.subplots(figsize=(self.fig_w/100, self.fig_h/100), dpi=100)
+        fig, ax = plt.subplots(figsize=(self.fig_w/150, self.fig_h/150), dpi=150)
         fig.patch.set_facecolor("black")
         ax.set_facecolor("black")
 
@@ -212,33 +212,43 @@ class TrajectoryPlot:
             ax.scatter(trajectory[0, ix], trajectory[0, iy],
                        c='white', marker='s', s=30, zorder=6, label="Start")
 
-        # Keyframe positions (Camera frustums/arrows)
+        # Keyframe positions — blue dots, no per-KF arrows
         if keyframes:
             pos_x = [kf.T_world_cam[ix, 3] for kf in keyframes]
             pos_y = [kf.T_world_cam[iy, 3] for kf in keyframes]
-            
-            # Compute smoothed direction tangent to the path
-            dir_x = []
-            dir_y = []
-            N = len(keyframes)
-            for i in range(N):
-                i_prev = max(0, i - 3)
-                i_next = min(N - 1, i + 3)
-                
-                dx = keyframes[i_next].T_world_cam[ix, 3] - keyframes[i_prev].T_world_cam[ix, 3]
-                dy = keyframes[i_next].T_world_cam[iy, 3] - keyframes[i_prev].T_world_cam[iy, 3]
-                
-                if dx == 0 and dy == 0:
-                    dx, dy = 0.0, 1.0
-                
-                # Normalize
-                length = max(np.hypot(dx, dy), 1e-6)
-                dir_x.append(dx / length)
-                dir_y.append(dy / length)
-            
-            ax.quiver(pos_x, pos_y, dir_x, dir_y, color=self.kf_color,
-                      scale=30, width=0.003, headwidth=4, headlength=4, 
-                      pivot='tail', zorder=4, alpha=0.9, label="Keyframes", angles='xy')
+            ax.scatter(pos_x, pos_y, s=18, c=self.kf_color,
+                       zorder=4, label="Keyframes", linewidths=0)
+
+            # Single camera-direction arrow on the LATEST keyframe only.
+            # Extract the forward (+Z in camera frame) direction from the
+            # rotation matrix and project it onto the chosen 2-D axes.
+            latest = keyframes[-1]
+            R = latest.T_world_cam[:3, :3]   # world ← cam rotation
+            fwd_cam   = np.array([0.0, 0.0, 1.0])
+            fwd_world = R @ fwd_cam           # forward in world frame
+            dx = fwd_world[ix]
+            dy = fwd_world[iy]
+            length = max(np.hypot(dx, dy), 1e-6)
+            dx /= length
+            dy /= length
+
+            # Scale arrow to ~3% of the current axis span for visibility
+            xlim = ax.get_xlim() if ax.get_xlim() != (0.0, 1.0) else (-10, 10)
+            span = max(abs(xlim[1] - xlim[0]), 1.0)
+            arrow_len = span * 0.04
+
+            ax.annotate(
+                "", 
+                xy=(pos_x[-1] + dx * arrow_len, pos_y[-1] + dy * arrow_len),
+                xytext=(pos_x[-1], pos_y[-1]),
+                arrowprops=dict(
+                    arrowstyle="-|>",
+                    color="#FFD700",      # gold — stands out against blue dots + red traj
+                    lw=2.0,
+                    mutation_scale=14,
+                ),
+                zorder=7,
+            )
 
         ax.set_xlabel(axes[0].upper(), color="white", weight='bold')
         ax.set_ylabel(axes[1].upper(), color="white", weight='bold')
@@ -390,7 +400,7 @@ def plot_trajectory_static(
     Create a static publication-quality trajectory figure.
     Returns the Figure (caller can show or save).
     """
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(22, 10))   # hi-res static figure
     fig.patch.set_facecolor("black")
 
     for ax, (ix, iy, xlabel, ylabel) in [
@@ -425,29 +435,34 @@ def plot_trajectory_static(
         if keyframes:
             pos_x = [kf.T_world_cam[ix, 3] for kf in keyframes]
             pos_y = [kf.T_world_cam[iy, 3] for kf in keyframes]
-            
-            # Compute smoothed direction tangent to the path
-            dir_x = []
-            dir_y = []
-            N = len(keyframes)
-            for i in range(N):
-                i_prev = max(0, i - 3)
-                i_next = min(N - 1, i + 3)
-                
-                dx = keyframes[i_next].T_world_cam[ix, 3] - keyframes[i_prev].T_world_cam[ix, 3]
-                dy = keyframes[i_next].T_world_cam[iy, 3] - keyframes[i_prev].T_world_cam[iy, 3]
-                
-                if dx == 0 and dy == 0:
-                    dx, dy = 0.0, 1.0
-                
-                # Normalize
-                length = max(np.hypot(dx, dy), 1e-6)
-                dir_x.append(dx / length)
-                dir_y.append(dy / length)
-            
-            ax.quiver(pos_x, pos_y, dir_x, dir_y, color="white",
-                      scale=30, width=0.003, headwidth=4, headlength=4, 
-                      pivot='tail', zorder=4, alpha=0.9, label="Keyframes", angles='xy')
+            ax.scatter(pos_x, pos_y, s=18, c="#4A90D9",
+                       zorder=4, label="Keyframes", linewidths=0)
+
+            # Camera-direction arrow on the LATEST keyframe only
+            latest = keyframes[-1]
+            R = latest.T_world_cam[:3, :3]
+            fwd_world = R @ np.array([0.0, 0.0, 1.0])
+            dx = fwd_world[ix]
+            dy = fwd_world[iy]
+            length = max(np.hypot(dx, dy), 1e-6)
+            dx /= length
+            dy /= length
+
+            xlim = ax.get_xlim() if ax.get_xlim() != (0.0, 1.0) else (-10, 10)
+            arrow_len = max(abs(xlim[1] - xlim[0]), 1.0) * 0.04
+
+            ax.annotate(
+                "",
+                xy=(pos_x[-1] + dx * arrow_len, pos_y[-1] + dy * arrow_len),
+                xytext=(pos_x[-1], pos_y[-1]),
+                arrowprops=dict(
+                    arrowstyle="-|>",
+                    color="#FFD700",
+                    lw=2.0,
+                    mutation_scale=14,
+                ),
+                zorder=7,
+            )
 
         ax.legend(fontsize=9, facecolor="black", labelcolor="white", loc='lower right', edgecolor="white")
 
@@ -457,7 +472,7 @@ def plot_trajectory_static(
     fig.tight_layout()
 
     if save_path:
-        fig.savefig(save_path, dpi=150, bbox_inches="tight",
+        fig.savefig(save_path, dpi=200, bbox_inches="tight",
                     facecolor=fig.get_facecolor())
     return fig
 

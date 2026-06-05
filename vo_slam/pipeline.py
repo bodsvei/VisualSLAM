@@ -38,6 +38,7 @@ from .motion       import (MotionEstimator, PoseEstimate,
                            compose_pose, invert_pose)
 from .triangulation import Triangulator, MapPoint
 from .keyframe     import Keyframe, KeyframeSelector
+from .covisibility import CovisibilityGraph  # Stage-2 module — not yet implemented
 
 
 # ═══════════════════════════════════════════════════════════════════════ #
@@ -71,7 +72,7 @@ class VOConfig:
     ransac_prob     : float         = 0.999
     min_inliers     : int           = 20
     # Scale (monocular)
-    scale_mode      : str           = 'median_depth'  # 'median_depth' | 'fixed' | 'none'
+    scale_mode      : str           = 'median_depth'          # SAFE default — use 'median_depth' only after Bug1+2 verified
     fixed_scale     : float         = 1.0
     # Triangulation
     max_reproj_err  : float         = 2.0
@@ -170,6 +171,7 @@ class VisualOdometry:
     ):
         self.camera  = camera
         self.cfg     = config or VOConfig()
+        self.covis_graph = CovisibilityGraph(min_shared=15)  # Stage-2
 
         # ── Sub-systems ─────────────────────────────────────────────── #
         self.detector  = FeatureDetector(
@@ -313,6 +315,7 @@ class VisualOdometry:
 
         stats.is_keyframe = True
         stats.kf_reason   = "init"
+        self.covis_graph.add_keyframe(kf)  # Stage-2
         return stats
 
     # ================================================================== #
@@ -360,11 +363,28 @@ class VisualOdometry:
         R_cur_prev = pose.R.T
         t_cur_prev = -(pose.R.T @ (pose.t.ravel() * scale))
 
+        # DEBUG: print first 5 frames to verify sign convention
+        if self.frame_id < 5:
+            print(f"  [frame {self.frame_id}] R_cur_prev diag = {R_cur_prev.diagonal().round(3)}")
+            print(f"  [frame {self.frame_id}] t_cur_prev      = {t_cur_prev.round(4)}")
+            print(f"  [frame {self.frame_id}] inliers         = {pose.num_inliers}")
+
         T_rel = np.eye(4)
         T_rel[:3, :3] = R_cur_prev
         T_rel[:3,  3] = t_cur_prev
 
-        self.T_world_cam = compose_pose(self.T_world_cam, T_rel)
+        T_new = compose_pose(self.T_world_cam, T_rel)
+
+        # ── Pose health check ────────────────────────────────────────── #
+        # Reject frames where the composed pose contains NaN/Inf or an
+        # implausibly large step (> 50 m per frame at 10 Hz = 500 m/s).
+        MAX_STEP_M = 50.0
+        step = np.linalg.norm(T_new[:3, 3] - self.T_world_cam[:3, 3])
+        if not np.isfinite(T_new).all() or step > MAX_STEP_M:
+            self.state = VOState.LOST
+            return stats   # keep last good pose; do not update
+
+        self.T_world_cam = T_new
         self.pose_graph.add(self.T_world_cam)
 
         # ── 5. Match against KEYFRAME for Triangulation ──────────────── #
@@ -429,6 +449,7 @@ class VisualOdometry:
 
             if self.on_new_keyframe:
                 self.on_new_keyframe(new_kf)
+            self.covis_graph.add_keyframe(new_kf)  # Stage-2
 
         self._last_gray     = gray.copy()
         self._last_features = cur_feats
@@ -444,7 +465,14 @@ class VisualOdometry:
         Monocular VO recovers only unit translation direction.
         Scale is estimated by keeping the median depth of the last map
         constant between consecutive frames (heuristic).
+
+        Scale is clamped to [SCALE_MIN, SCALE_MAX] to prevent explosion.
+        If the raw estimate falls outside this window the frame is treated
+        as unreliable and unit scale is returned instead.
         """
+        SCALE_MIN = 0.1
+        SCALE_MAX = 10.0
+
         mode = self.cfg.scale_mode
 
         if mode == 'fixed':
@@ -460,8 +488,9 @@ class VisualOdometry:
                 self.map_points[-min(200, len(self.map_points)):],
                 T_cur_world,
             )
-            if depth > 0:
-                return depth  # keep consistent scale
+            if SCALE_MIN < depth < SCALE_MAX:
+                return depth   # clamped: safe to use
+            # Outside window → depth estimate is unreliable; fall through to 1.0
 
         return 1.0
 
