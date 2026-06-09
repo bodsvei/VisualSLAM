@@ -110,12 +110,6 @@ class PlaceRecognizer:
         """
         Query the database for loop candidates.
         Returns a LoopCandidate if consistency check passes, else None.
-
-        Parameters
-        ----------
-        kf_id       : current keyframe id
-        descriptors : current KF's ORB descriptors
-        covis_ids   : co-visibility neighbors (excluded from query)
         """
         if len(self.db) < self.temporal_window + 5:
             return None   # not enough history yet
@@ -137,8 +131,8 @@ class PlaceRecognizer:
             return None
 
         # ── 4. Score threshold filter ─────────────────────────────────── #
-        # Baseline: use best score of recent KF against DB as reference
-        baseline  = self._compute_baseline_score(bow, exclude)
+        # FIX: Compute baseline score explicitly against recent history without exclusion filters
+        baseline  = self._compute_baseline_score(bow)
         threshold = max(self.min_score, 0.75 * baseline)
 
         candidates = [r for r in raw_results if r.score >= threshold]
@@ -177,17 +171,13 @@ class PlaceRecognizer:
     def _compute_baseline_score(
         self,
         bow     : BowVector,
-        exclude : Set[int],
     ) -> float:
         """
         Score of current KF against its recent temporal neighbors.
         Used to set a relative threshold — nearby KFs should score high,
         loop candidates must score at least 75% of this.
         """
-        recent_included = [
-            kf_id for kf_id in self._kf_id_history[-5:]
-            if kf_id not in exclude
-        ]
+        recent_included = self._kf_id_history[-5:]
         if not recent_included:
             return self.min_score
 
@@ -211,7 +201,6 @@ class PlaceRecognizer:
         Update hit counters.
         Returns the candidate_id that reached consistency threshold, or None.
         """
-        # Increment hits for candidates seen in both this and last query
         new_hits: Dict[int, int] = {}
         for cid in current_candidates:
             if cid in self._last_candidates:

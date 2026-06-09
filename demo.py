@@ -1,102 +1,88 @@
 """
 demo.py
 -------
-Run the Visual Odometry pipeline.
+Run the full VSLAM pipeline (VO + Local Mapping + Loop Detection + PGO + Map Reuse).
+
+Display layout (ORB-SLAM2 / Pangolin style)
+-------------------------------------------
+  Frame Viewer window: grayscale feed with yellow hollow-
+                        square brackets on every tracked keypoint, single
+                        dark status-bar at bottom:
+                        MAPPING | KF: N, LM: N, KP: N, track time: Nms
+  Map Viewer window (800x800): pure OpenCV render, dark background,
+                        red point cloud, green camera-frustum chevrons,
+                        trajectory spine.
 
 Modes
 -----
   1. KITTI dataset  – pass --kitti /path/to/sequence/image_0
-                      optionally --calib and --gt-poses for full evaluation
   2. Video file     – pass --video  path/to/video.mp4
   3. Webcam         – pass --webcam
 
-Usage examples
---------------
-  python demo.py                                       # synthetic
-  python demo.py --kitti /data/kitti/00/image_0        # KITTI frames only
-  python demo.py --kitti /data/kitti/00/image_0 \
-                 --calib    /data/kitti/00/calib.txt \
-                 --gt-poses /data/kitti/poses/00.txt   # full eval + evo cmds
-  python demo.py --video  input.mp4
-  python demo.py --webcam
+Stage flags
+-----------
+  --no-local-map          disable local bundle adjustment thread
+  --no-loop               disable loop detection thread
+  --save-vocab PATH       save vocabulary after run
+  --load-vocab PATH       load pre-built vocabulary (skips build delay)
+  --save-map   PATH       save full map to .pkl after run          [Stage 5]
+  --load-map   PATH       load existing map and relocalize into it  [Stage 5]
+  --reloc-frames N        frames to attempt relocalization (default 30)
+  --reloc-only            localize only, do not extend map
+  --min-loop-gap N        frames between loop callbacks (dead zone, default 200)
 
-Stage 2 / Stage 3 flags (require vo_slam.local_mapping / vo_slam.loop_detector)
-  --no-loop              Disable loop detection (Stage 3)
-  --save-vocab FILE      Save BoW vocabulary to .pkl after run
-  --load-vocab FILE      Load pre-built BoW vocabulary from .pkl
+Camera intrinsics
+-----------------
+  --fx --fy --cx --cy     full intrinsics in pixels
+  --hfov                  horizontal FOV in degrees (fallback)
 
-Press 'q' to quit, 's' to save a trajectory snapshot.
+Keys during run
+---------------
+  q  quit
+  s  save trajectory snapshot
+  l  print current loop closure count
+  r  print relocalization status
 """
 
 import argparse
-import json
 import sys
 import os
 import time
-from datetime import datetime
+import collections
 from pathlib import Path
 
 import cv2
 import numpy as np
 import matplotlib
-
 if os.environ.get("DISPLAY") or sys.platform == "darwin" or sys.platform == "win32":
     try:
-        matplotlib.use("TkAgg")   # interactive — supports plt.show()
+        matplotlib.use("TkAgg")
     except Exception:
         matplotlib.use("Agg")
 else:
-    matplotlib.use("Agg")         # headless server — no display
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-# ── Add parent directory so `vo_slam` is importable when running directly ── #
 sys.path.insert(0, str(Path(__file__).parent))
 
 from vo_slam import (
     CameraModel, VOConfig, VisualOdometry, DetectorType,
     FeatureOverlay, TrajectoryPlot, plot_trajectory_static,
 )
-
-# ── Stage 2 / 3 optional imports ─────────────────────────────────────────── #
-try:
-    from vo_slam.local_mapping import LocalMapper
-    from vo_slam.loop_detector import LoopDetector, LoopEvent
-    from vo_slam.vocabulary    import VisualVocabulary
-    _HAS_STAGES_23 = True
-except ImportError:
-    _HAS_STAGES_23 = False
+from vo_slam.local_mapping  import LocalMapper
+from vo_slam.loop_detector  import LoopDetector, LoopEvent
+from vo_slam.vocabulary     import VisualVocabulary
+from vo_slam.pose_graph_optimizer import PoseGraphOptimizer    # Stage 4
+from vo_slam.map_storage    import MapStorage
+from vo_slam.relocalization import Relocalization
 
 
-# ═══════════════════════════════════════════════════════════════════════════ #
-#  KITTI helpers                                                              #
-# ═══════════════════════════════════════════════════════════════════════════ #
-
-def load_calib(path: Path) -> np.ndarray:
-    """Parse calib.txt; return the 3×3 intrinsic matrix K extracted from P0."""
-    with open(path) as f:
-        for line in f:
-            if line.startswith("P0:"):
-                vals = list(map(float, line.strip().split()[1:]))
-                return np.array(vals).reshape(3, 4)[:3, :3]
-    raise ValueError("P0 not found in calib.txt")
-
-
-def load_poses(path: Path):
-    """Load KITTI-format ground-truth poses; return a list of 4×4 matrices."""
-    poses = []
-    with open(path) as f:
-        for line in f:
-            T = np.array(list(map(float, line.strip().split()))).reshape(3, 4)
-            poses.append(np.vstack([T, [0, 0, 0, 1]]))
-    return poses
-
-# ═══════════════════════════════════════════════════════════════════════════ #
-#  Dataset loaders                                                            #
-# ═══════════════════════════════════════════════════════════════════════════ #
+# ═══════════════════════════════════════════════════════════════════════ #
+#  Dataset loaders                                                        #
+# ═══════════════════════════════════════════════════════════════════════ #
 
 def kitti_loader(folder: str):
-    """Yield (image, frame_id) from a KITTI image folder."""
-    p = Path(folder)
+    p     = Path(folder)
     files = sorted(p.glob("*.png")) + sorted(p.glob("*.jpg"))
     if not files:
         raise FileNotFoundError(f"No images in {folder}")
@@ -107,7 +93,6 @@ def kitti_loader(folder: str):
 
 
 def video_loader(path: str):
-    """Yield (frame, frame_id) from a video file."""
     cap = cv2.VideoCapture(path)
     fid = 0
     while cap.isOpened():
@@ -120,7 +105,6 @@ def video_loader(path: str):
 
 
 def webcam_loader(device: int = 0):
-    """Yield (frame, frame_id) from webcam."""
     cap = cv2.VideoCapture(device)
     fid = 0
     while cap.isOpened():
@@ -132,41 +116,273 @@ def webcam_loader(device: int = 0):
     cap.release()
 
 
-# ═══════════════════════════════════════════════════════════════════════════ #
-#  Main runner                                                                #
-# ═══════════════════════════════════════════════════════════════════════════ #
+# ═══════════════════════════════════════════════════════════════════════ #
+#  Blur detection                                                         #
+# ═══════════════════════════════════════════════════════════════════════ #
+
+def is_blurry(frame: np.ndarray, threshold: float = 80.0) -> bool:
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
+    return float(cv2.Laplacian(gray, cv2.CV_64F).var()) < threshold
+
+
+# ═══════════════════════════════════════════════════════════════════════ #
+#  Map Viewer panel — pure OpenCV, ORB-SLAM2 Pangolin style               #
+# ═══════════════════════════════════════════════════════════════════════ #
+
+_FRUSTUM_PTS = np.array([
+    [ 0,  0],   # apex (camera position)
+    [-6,  9],   # left wing
+    [ 0,  6],   # notch
+    [ 6,  9],   # right wing
+], dtype=np.float32)
+
+
+def _world_to_map_px(
+    xyz          : np.ndarray,   # (N, 3) world coords
+    cx           : float,        # canvas centre x
+    cz           : float,        # canvas centre z
+    scale        : float,        # pixels per metre
+) -> np.ndarray:
+    """Project world XZ onto the top-down canvas (Y ignored)."""
+    px = (cx + xyz[:, 0] * scale).astype(np.int32)
+    pz = (cz - xyz[:, 2] * scale).astype(np.int32)
+    return np.stack([px, pz], axis=1)
+
+
+def _draw_frustum(
+    canvas   : np.ndarray,
+    T_wc     : np.ndarray,      # 4×4 T_world_cam
+    cx       : float,
+    cz       : float,
+    scale    : float,
+    color    : tuple,
+    size     : float = 1.0,
+):
+    """
+    Draw a camera frustum (chevron) at the keyframe position.
+    Heading is derived from the forward (+Z_cam) direction projected onto XZ.
+    """
+    pos   = T_wc[:3, 3]
+    R     = T_wc[:3, :3]
+    fwd   = R @ np.array([0.0, 0.0, 1.0])   # forward in world
+    right = R @ np.array([1.0, 0.0, 0.0])   # right  in world
+
+    # Build 2-D rotation from world XZ heading
+    dx, dz = fwd[0], fwd[2]
+    ang    = np.arctan2(dx, dz)              # angle in XZ plane
+    cos_a, sin_a = np.cos(ang), np.sin(ang)
+
+    pts = _FRUSTUM_PTS * size
+    rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
+    pts = (rot @ pts.T).T
+
+    # Translate to canvas pixels
+    ox = int(cx + pos[0] * scale)
+    oz = int(cz - pos[2] * scale)
+    screen = pts + np.array([ox, oz])
+    screen = screen.astype(np.int32)
+
+    cv2.polylines(canvas, [screen.reshape(-1, 1, 2)], True, color, 1, cv2.LINE_AA)
+
+
+def render_map_viewer(
+    map_points   : list,
+    keyframes    : list,
+    trajectory   : np.ndarray,
+    loop_events  : list,
+    panel_w      : int,
+    panel_h      : int,
+    vo_state     : str,
+) -> np.ndarray:
+    """
+    Pure-OpenCV top-down map viewer mimicking Pangolin / ORB-SLAM2.
+    """
+    BG    = (10, 10, 12)
+    canvas = np.full((panel_h, panel_w, 3), BG, dtype=np.uint8)
+
+    # ── Auto-scale: fit the trajectory spread into the panel ─────────── #
+    scale = 20.0                  # pixels per metre (default)
+    if len(trajectory) > 3:
+        span_x = float(np.ptp(trajectory[:, 0]))
+        span_z = float(np.ptp(trajectory[:, 2]))
+        span   = max(span_x, span_z, 1.0)
+        # Use 80% of the smaller panel dimension
+        scale  = min(panel_w, panel_h) * 0.80 / span
+        scale  = float(np.clip(scale, 4.0, 120.0))
+
+    # ── Center map onto the most recent position ─────────────────────── #
+    if len(trajectory) > 0:
+        curr_pos = trajectory[-1]
+        curr_x, curr_z = float(curr_pos[0]), float(curr_pos[2])
+    else:
+        curr_x, curr_z = 0.0, 0.0
+
+    # Adjust base offsets dynamically so the camera remains dead center
+    cx = panel_w / 2.0 - curr_x * scale
+    cz = panel_h / 2.0 + curr_z * scale
+
+    # ── Map point cloud ───────────────────────────────────────────────── #
+    if map_points:
+        mp_xyz = np.array([mp.xyz for mp in map_points], dtype=np.float32)
+        # Thin out if too many (draw every N-th)
+        step = max(1, len(mp_xyz) // 8000)
+        mp_xyz = mp_xyz[::step]
+        pxs = _world_to_map_px(mp_xyz, cx, cz, scale)
+        H, W = canvas.shape[:2]
+        mask = (pxs[:, 0] >= 0) & (pxs[:, 0] < W) & (pxs[:, 1] >= 0) & (pxs[:, 1] < H)
+        for px in pxs[mask]:
+            cv2.circle(canvas, tuple(px), 1, (30, 30, 200), -1)   # red dots
+
+    # ── Keyframe spine (grey connecting line) ─────────────────────────── #
+    if len(keyframes) > 1:
+        kf_pxs = []
+        for kf in keyframes:
+            pos = kf.T_world_cam[:3, 3]
+            px  = int(cx + pos[0] * scale)
+            pz  = int(cz - pos[2] * scale)
+            kf_pxs.append([px, pz])
+        kf_pxs = np.array(kf_pxs, dtype=np.int32)
+        cv2.polylines(canvas, [kf_pxs.reshape(-1, 1, 2)], False,
+                      (55, 55, 55), 1, cv2.LINE_AA)
+
+    # ── Loop closure lines (cyan) ─────────────────────────────────────── #
+    if loop_events and len(keyframes) > 1:
+        kf_id_map = {kf.kf_id: kf for kf in keyframes}
+        for ev in loop_events[-20:]:
+            q = kf_id_map.get(ev["query_kf_id"])
+            m = kf_id_map.get(ev["match_kf_id"])
+            if q is None or m is None:
+                continue
+            p1 = q.T_world_cam[:3, 3]
+            p2 = m.T_world_cam[:3, 3]
+            u1, v1 = int(cx + p1[0]*scale), int(cz - p1[2]*scale)
+            u2, v2 = int(cx + p2[0]*scale), int(cz - p2[2]*scale)
+            cv2.line(canvas, (u1, v1), (u2, v2), (200, 200, 0), 1, cv2.LINE_AA)
+
+    # ── Keyframe frustum chevrons ─────────────────────────────────────── #
+    FRUSTUM_COLOR      = (0, 200,  60)    # green
+    FRUSTUM_COLOR_CURR = (0, 255, 100)    # brighter for current
+    for i, kf in enumerate(keyframes):
+        is_last = (i == len(keyframes) - 1)
+        color   = FRUSTUM_COLOR_CURR if is_last else FRUSTUM_COLOR
+        size    = 1.5 if is_last else 0.9
+        _draw_frustum(canvas, kf.T_world_cam, cx, cz, scale, color, size)
+
+    # ── Title strip ───────────────────────────────────────────────────── #
+    state_col = (0, 200, 60) if vo_state == "OK" else (0, 60, 220)
+    cv2.putText(canvas, "Map Viewer", (8, 18),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.50, (160, 160, 160), 1, cv2.LINE_AA)
+    kf_n  = len(keyframes)
+    mp_n  = len(map_points)
+    lp_n  = len(loop_events)
+    info  = f"KF:{kf_n}  MP:{mp_n}  LP:{lp_n}"
+    tw, _ = cv2.getTextSize(info, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
+    cv2.putText(canvas, info, (panel_w - tw[0] - 8, 18),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.42, (110, 110, 110), 1, cv2.LINE_AA)
+
+    return canvas
+
+
+# ═══════════════════════════════════════════════════════════════════════ #
+#  Frame Viewer panel — grayscale feed + ORB-SLAM2-style feature markers  #
+# ═══════════════════════════════════════════════════════════════════════ #
+
+def render_frame_viewer(
+    frame        : np.ndarray,   # BGR or gray source frame
+    cur_feats,                   # FrameFeatures (pts2d)
+    vo_state     : str,
+    num_kf       : int,
+    num_lm       : int,          # landmark / map-point count
+    num_kp       : int,          # keypoints in current frame
+    process_ms   : float,
+    is_kf        : bool,
+    panel_w      : int,
+    panel_h      : int,
+) -> np.ndarray:
+    """
+    Frame viewer mimicking ORB-SLAM2's right-hand Pangolin panel.
+    """
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
+    out  = cv2.cvtColor(gray,  cv2.COLOR_GRAY2BGR)
+    out  = cv2.resize(out, (panel_w, panel_h))
+
+    H, W = out.shape[:2]
+
+    # Scale factor from original frame to panel
+    orig_h, orig_w = frame.shape[:2]
+    sx = panel_w / orig_w
+    sy = panel_h / orig_h
+
+    # ── Yellow hollow-square bracket markers ──────────────────────────── #
+    if cur_feats is not None and len(cur_feats) > 0:
+        BRACKET_COLOR  = (0, 220, 220)   # yellow (BGR)
+        BRACKET_HALF   = 6               # half-size of square in pixels
+        BRACKET_ARM    = 3               # length of corner arm
+        THICKNESS      = 1
+
+        for pt in cur_feats.pts2d:
+            u = int(pt[0] * sx)
+            v = int(pt[1] * sy)
+            if not (BRACKET_HALF <= u < W - BRACKET_HALF and
+                    BRACKET_HALF <= v < H - BRACKET_HALF):
+                continue
+            x0, y0 = u - BRACKET_HALF, v - BRACKET_HALF
+            x1, y1 = u + BRACKET_HALF, v + BRACKET_HALF
+
+            # Top-left corner
+            cv2.line(out, (x0, y0), (x0 + BRACKET_ARM, y0), BRACKET_COLOR, THICKNESS)
+            cv2.line(out, (x0, y0), (x0, y0 + BRACKET_ARM), BRACKET_COLOR, THICKNESS)
+            # Top-right corner
+            cv2.line(out, (x1, y0), (x1 - BRACKET_ARM, y0), BRACKET_COLOR, THICKNESS)
+            cv2.line(out, (x1, y0), (x1, y0 + BRACKET_ARM), BRACKET_COLOR, THICKNESS)
+            # Bottom-left corner
+            cv2.line(out, (x0, y1), (x0 + BRACKET_ARM, y1), BRACKET_COLOR, THICKNESS)
+            cv2.line(out, (x0, y1), (x0, y1 - BRACKET_ARM), BRACKET_COLOR, THICKNESS)
+            # Bottom-right corner
+            cv2.line(out, (x1, y1), (x1 - BRACKET_ARM, y1), BRACKET_COLOR, THICKNESS)
+            cv2.line(out, (x1, y1), (x1 - BRACKET_ARM, y1), BRACKET_COLOR, THICKNESS)
+
+    # ── Status bar — single line at the very bottom ───────────────────── #
+    BAR_H     = 28
+    bar_top   = H - BAR_H
+    cv2.rectangle(out, (0, bar_top), (W, H), (18, 18, 18), -1)
+
+    state_label = "MAPPING" if vo_state == "OK" else vo_state
+    state_color = (0, 210, 60) if vo_state == "OK" else (40, 40, 220)
+
+    cv2.putText(out, state_label, (8, H - 8),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.52, state_color, 1, cv2.LINE_AA)
+
+    sep_x = 8 + cv2.getTextSize(state_label, cv2.FONT_HERSHEY_SIMPLEX, 0.52, 1)[0][0] + 6
+    cv2.putText(out, "|", (sep_x, H - 8),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.52, (80, 80, 80), 1, cv2.LINE_AA)
+
+    stats_txt = (f"  KF: {num_kf},  LM: {num_lm},  "
+                 f"KP: {num_kp},  track time: {process_ms:.0f}ms")
+    cv2.putText(out, stats_txt, (sep_x + 12, H - 8),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.48, (210, 210, 210), 1, cv2.LINE_AA)
+
+    if is_kf:
+        badge_txt = "NEW KF"
+        tw, th = cv2.getTextSize(badge_txt, cv2.FONT_HERSHEY_SIMPLEX, 0.40, 1)[0]
+        bx = W - tw - 10
+        cv2.rectangle(out, (bx - 4, 4), (W - 4, th + 8), (0, 160, 160), -1)
+        cv2.putText(out, badge_txt, (bx, th + 4),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.40, (0, 0, 0), 1, cv2.LINE_AA)
+
+    return out
+
+
+# ═══════════════════════════════════════════════════════════════════════ #
+#  Main runner                                                            #
+# ═══════════════════════════════════════════════════════════════════════ #
 
 def run(args):
-    # ── Timestamp ────────────────────────────────────────────────────────── #
-    timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
-    source_tag = ("kitti"     if args.kitti  else
-                  "video"     if args.video  else
-                  "webcam"    if args.webcam else
-                  "synthetic")
 
-    # JSON output path (KITTI mode only)
-    json_path = None
+    # ── Camera ───────────────────────────────────────────────────────── #
     if args.kitti:
-        json_dir  = Path("logs")
-        json_dir.mkdir(parents=True, exist_ok=True)
-        json_path = json_dir / f"run_{source_tag}_{timestamp}.json"
-
-    print(f"{'='*60}")
-    print(f"  Visual SLAM Demo — source: {source_tag}  [{timestamp}]")
-    if json_path:
-        print(f"  JSON : {json_path}")
-    print(f"{'='*60}")
-
-    # ── Camera ───────────────────────────────────────────────────────────── #
-    if args.kitti:
-        if args.calib:
-            K      = load_calib(Path(args.calib))
-            camera = CameraModel.from_matrix(K, width=1241, height=376)
-            print(f"Camera: loaded from {args.calib}")
-            print(f"K matrix:\n{camera.K}")
-        else:
-            camera = CameraModel.kitti()
-            print("Camera: using KITTI preset (pass --calib for exact K)")
+        camera = CameraModel.kitti()
+        print(f"Camera: KITTI preset  {camera}")
 
     elif args.webcam or args.video:
         cap = cv2.VideoCapture(0 if args.webcam else args.video)
@@ -175,117 +391,150 @@ def run(args):
         cap.release()
 
         if args.fx and args.fy and args.cx and args.cy:
-            K = np.array([
-                [args.fx, 0,       args.cx],
-                [0,       args.fy, args.cy],
-                [0,       0,       1.0    ],
-            ])
+            K      = np.array([[args.fx, 0, args.cx],
+                                [0, args.fy, args.cy],
+                                [0, 0, 1.0]])
             camera = CameraModel.from_matrix(K, width=W, height=H)
-            print(f"Camera: provided intrinsics  fx={args.fx}  fy={args.fy}  "
-                  f"cx={args.cx}  cy={args.cy}")
-
+            print(f"Camera: intrinsics provided  {camera}")
         elif args.hfov:
             camera = CameraModel.from_fov(args.hfov, W, H)
-            print(f"Camera: hfov={args.hfov}° → fx≈{camera.fx:.1f}")
-
+            print(f"Camera: hfov={args.hfov}°  {camera}")
         else:
             camera = CameraModel.from_fov(60.0, W, H)
-            print("[WARNING] No camera intrinsics provided; using hfov=60° estimate.")
-            print("          For better results pass --fx --fy --cx --cy or --hfov.")
-
+            print(f"[WARNING] No intrinsics — using hfov=60° estimate.")
+            print(f"          Pass --fx --fy --cx --cy or --hfov for accuracy.")
     else:
         camera = CameraModel.from_fov(70.0, width=1241, height=376)
 
-    # ── Ground-truth poses (optional, KITTI only) ─────────────────────────── #
-    gt = None
-    if args.gt_poses:
-        gt = load_poses(Path(args.gt_poses))
-        print(f"GT poses: {len(gt)} loaded from {args.gt_poses}")
+    print(f"K =\n{camera.K}\n")
 
-    # ── VO config ────────────────────────────────────────────────────────── #
+    # ── Window configurations ─────────────────────────────────────────── #
+    # Map Viewer dimension requirements
+    MAP_W = 800
+    MAP_H = 800
+
+    # Frame Viewer sizes uniformly scaled according to source resolution to prevent distortion
+    FRAME_H = max(480, camera.height)
+    scale_f = FRAME_H / camera.height
+    FRAME_W = int(camera.width * scale_f)
+
+    # ── Stage 5: Load existing map ────────────────────────────────────── #
+    saved_map       = None
+    relocalizer     = None
+    reloc_status    = "none"
+    reloc_done      = True
+    reloc_attempts  = 0
+    reloc_successes = 0
+
+    if args.load_map and Path(args.load_map).exists():
+        saved_map = MapStorage.load(args.load_map)
+        relocalizer = Relocalization(
+            saved_map   = saved_map,
+            camera_K    = camera.K,
+            min_matches = 15,
+            min_inliers = 12,
+        )
+        reloc_done   = False
+        reloc_status = f"searching ({args.reloc_frames} frames)"
+        print(f"Map loaded     : {saved_map.n_keyframes} KFs, "
+              f"{saved_map.n_map_points} MPs")
+        print(f"Relocalization : armed for first {args.reloc_frames} frames")
+    elif args.load_map:
+        print(f"[WARNING] Map file not found: {args.load_map}")
+
+    # ── VO ────────────────────────────────────────────────────────────── #
     cfg = VOConfig(
         detector_type   = DetectorType.ORB,
         max_features    = 1500,
         ratio_thresh    = 0.75,
         min_inliers     = 15,
         scale_mode      = "fixed",
+        fixed_scale     = 1.0,
         store_images    = False,
         kf_min_parallax = 2.0,
         kf_min_frames   = 3,
         kf_max_frames   = 15,
     )
     vo = VisualOdometry(camera, cfg)
-    print(f"VOConfig: scale_mode={cfg.scale_mode}  max_features={cfg.max_features}  "
-          f"min_inliers={cfg.min_inliers}")
 
-    # ── Stage 2: Local Mapper ─────────────────────────────────────────────── #
-    mapper               = None
-    loop_detector        = None
-    loop_events_received = []
+    # ── Stage 4: Pose Graph Optimizer ────────────────────────────────── #
+    pgo = PoseGraphOptimizer(vo, n_iters=20, verbose=False)
+    print(f"PGO backend    : {'g2o' if pgo.__class__.__module__ else 'scipy'}")
 
-    if _HAS_STAGES_23:
+    # ── Stage 2: Local Mapper ─────────────────────────────────────────── #
+    mapper = None
+    if not args.no_local_map:
         mapper = LocalMapper(
             camera         = camera,
             map_points_ref = vo.map_points,
             keyframes_ref  = vo.keyframes,
             verbose        = False,
         )
-
-        # ── Stage 3: Loop Detector ───────────────────────────────────────── #
-        if not args.no_loop:
-            def on_loop(event: LoopEvent):
-                loop_events_received.append({
-                    "query_kf_id": event.query_kf_id,
-                    "match_kf_id": event.match_kf_id,
-                    "bow_score"  : round(float(event.bow_score), 4),
-                    "geo_inliers": int(event.geo_inliers),
-                    "timestamp"  : datetime.now().isoformat(),
-                })
-                print(
-                    f"*** LOOP CLOSURE ***  "
-                    f"KF{event.query_kf_id} <-> KF{event.match_kf_id}  "
-                    f"geo_inliers={event.geo_inliers}  bow={event.bow_score:.4f}"
-                )
-
-            vocab = None
-            if args.load_vocab and Path(args.load_vocab).exists():
-                vocab = VisualVocabulary.load(args.load_vocab)
-                print(f"Vocabulary loaded from {args.load_vocab}")
-
-            loop_detector = LoopDetector(
-                vocab            = vocab,
-                camera_K         = camera.K,
-                on_loop_detected = on_loop,
-                min_bow_score    = 0.012,
-                min_geo_inliers  = 25,
-                consistency      = 3,
-                temporal_window  = 20,
-                vocab_build_at   = 50,
-                verbose          = True,
-            )
-
-        # ── Wire on_new_keyframe hook ────────────────────────────────────── #
-        def on_new_keyframe(kf):
-            mapper.enqueue(kf)
-            if loop_detector is not None:
-                loop_detector.enqueue(kf)
-
-        vo.on_new_keyframe = on_new_keyframe
-
-        # ── Start background threads ─────────────────────────────────────── #
         mapper.start()
-        if loop_detector is not None:
-            loop_detector.start()
-
-        print(
-            f"Stage 2 (LocalMapper): active  |  "
-            f"Stage 3 (LoopDetector): "
-            f"{'active' if loop_detector is not None else 'disabled (--no-loop)'}"
-        )
+        print("LocalMapper    : ON")
     else:
-        print("[INFO] vo_slam.local_mapping / loop_detector not found; Stage 1 only.")
+        print("LocalMapper    : OFF  (--no-local-map)")
 
-    # ── Source ───────────────────────────────────────────────────────────── #
+    # ── Stage 3: Loop Detector ────────────────────────────────────────── #
+    loop_events   = []
+    loop_detector = None
+
+    def on_loop(event: LoopEvent):
+        loop_events.append({
+            "query_kf_id" : event.query_kf_id,
+            "match_kf_id" : event.match_kf_id,
+            "bow_score"   : round(float(event.bow_score), 4),
+            "geo_inliers" : int(event.geo_inliers),
+        })
+        print(f"\n  *** LOOP CLOSURE *** "
+              f"KF{event.query_kf_id} <-> KF{event.match_kf_id}  "
+              f"geo_inliers={event.geo_inliers}  bow={event.bow_score:.4f}\n")
+        
+        # ── Stage 4: trigger PGO immediately ─────────────────────────── #
+        pgo.on_loop(event)
+
+    if not args.no_loop:
+        vocab = None
+        if saved_map and saved_map.recognizer:
+            vocab = saved_map.recognizer.vocab
+            print("Vocabulary     : loaded from saved map")
+        elif args.load_vocab and Path(args.load_vocab).exists():
+            vocab = VisualVocabulary.load(args.load_vocab)
+            print(f"Vocabulary     : loaded from {args.load_vocab}")
+
+        loop_detector = LoopDetector(
+            vocab               = vocab,
+            camera_K            = camera.K,
+            on_loop_detected    = on_loop,
+            min_bow_score       = 0.012,
+            min_geo_inliers     = 25,
+            consistency         = 3,
+            temporal_window     = 20,
+            vocab_build_at      = 50,
+            min_loop_gap_frames = args.min_loop_gap,   # Transferred from run_kitti
+            verbose             = True,
+        )
+        print(f"LoopDetector   : ON (min_loop_gap={args.min_loop_gap} frames)")
+
+        if saved_map and saved_map.recognizer:
+            loop_detector._recognizer = saved_map.recognizer
+            print(f"BoW DB         : pre-loaded  "
+                  f"({len(saved_map.recognizer.db)} entries from saved map)")
+
+        loop_detector.start()
+    else:
+        print("LoopDetector   : OFF  (--no-loop)")
+
+    # ── Wire hooks ────────────────────────────────────────────────────── #
+    def on_new_keyframe(kf):
+        if mapper and not args.reloc_only:
+            mapper.enqueue(kf)
+        if loop_detector:
+            loop_detector.enqueue(kf)
+
+    vo.on_new_keyframe = on_new_keyframe
+
+    # ── Source ────────────────────────────────────────────────────────── #
     if args.kitti:
         source = kitti_loader(args.kitti)
     elif args.video:
@@ -293,286 +542,244 @@ def run(args):
     elif args.webcam:
         source = webcam_loader()
     else:
-        print("No source specified – running synthetic scene demo.")
+        print("No source — running synthetic scene demo.")
         source = SyntheticScene(camera)
 
-    # ── Visualisation setup ───────────────────────────────────────────────── #
-    traj_plotter = TrajectoryPlot(figsize=(500, 400))
+    # ── Visualisation state ───────────────────────────────────────────── #
     show_gui     = not args.no_gui
-
-    # ── Standalone ORB tracker (mirrors orb.py) ───────────────────────────── #
-    orb_detector = cv2.ORB_create(nfeatures=1000)
-    orb_matcher  = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-    orb_prev_frame: np.ndarray | None = None
-    orb_prev_kp                        = None
-    orb_prev_des                       = None
-
-    # ── Per-frame accumulators ────────────────────────────────────────────── #
-    frame_log   = []      # one entry per logged frame (every 50 when GT is loaded)
-    all_poses   = []      # one 4×4 per processed frame, used for pose file output
+    blurry_count = 0
+    
+    # Track all poses identically to run_kitti
     last_good_T = np.eye(4)
-    t_run_start = time.perf_counter()
+    all_poses   = []
 
-    # ── Table header — printed only when GT is loaded ─────────────────────── #
-    if gt is not None:
-        print()
-        print('─' * 90)
-        print(
-            f"{'Frame':>6}  {'est_x':>8} {'est_z':>8}  "
-            f"{'gt_x':>8} {'gt_z':>8}  "
-            f"{'KFs':>5} {'MPs':>7} {'Loops':>6} {'State':<8} {'ms':>6}"
-        )
-        print('─' * 90)
+    # Cache map panel — only rebuild every 3 frames
+    map_cache       = np.zeros((MAP_H, MAP_W, 3), dtype=np.uint8)
+    map_last_frame  = -999
 
-    print("\nRunning VO. Press 'q' to quit, 's' to save trajectory.\n")
+    print(f"\nRunning. Keys: q=quit  s=snapshot  l=loops  r=reloc status\n")
 
-    # ── Main processing loop ──────────────────────────────────────────────── #
+    # ── Main loop ─────────────────────────────────────────────────────── #
     for frame, fid in source:
-        t0    = time.perf_counter()
-        stats = vo.process(frame, timestamp=fid / 30.0)
-        dt_ms = (time.perf_counter() - t0) * 1000
 
-        # Track best-known pose (guard against NaN on tracking-lost frames)
+        # ── Blur check ────────────────────────────────────────────────── #
+        if is_blurry(frame, threshold=args.blur_threshold):
+            blurry_count += 1
+            if show_gui:
+                cv2.waitKey(1)
+            continue
+
+        # ── Stage 5: Relocalization attempt ───────────────────────────── #
+        if not reloc_done and relocalizer is not None:
+            gray_r = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            orb_r  = cv2.ORB_create(nfeatures=1000)
+            kps_r, descs_r = orb_r.detectAndCompute(gray_r, None)
+
+            if descs_r is not None and len(descs_r) > 20:
+                pts_r  = np.array([kp.pt for kp in kps_r], dtype=np.float32)
+                result = relocalizer.relocalize(descs_r, pts_r)
+
+                if result.success:
+                    vo.T_world_cam = result.T_world_cam.copy()
+                    reloc_status   = f"OK  KF{result.matched_kf_id}  ({result.inliers} inliers)"
+                    reloc_successes += 1
+                    reloc_done      = True
+                    print(f"  [Reloc] Recovered at frame {fid} → "
+                          f"KF{result.matched_kf_id}  inliers={result.inliers}")
+
+            reloc_attempts += 1
+            if reloc_attempts >= args.reloc_frames and not reloc_done:
+                reloc_status = f"failed ({reloc_attempts} attempts)"
+                reloc_done   = True
+                print(f"  [Reloc] Failed after {reloc_attempts} frames — starting fresh")
+
+        # ── VO process ────────────────────────────────────────────────── #
+        stats = vo.process(frame, timestamp=fid / 30.0)
+        
+        # Track poses continuously
         if np.isfinite(vo.T_world_cam).all():
             last_good_T = vo.T_world_cam.copy()
         all_poses.append(last_good_T.copy())
 
+        # ── Build displays (GUI only) ─────────────────────────────────── #
         if show_gui:
-            # Camera feed with HUD
-            display = FeatureOverlay.draw_hud(
-                frame,
-                frame_id   = fid,
-                num_kf     = len(vo.keyframes),
-                num_mp     = len(vo.map_points),
-                position   = vo.T_world_cam[:3, 3],
-                is_kf      = stats.is_keyframe,
-                process_ms = stats.process_ms,
-            )
-            cv2.imshow("Camera", display)
 
-            # Trajectory map (rendered every 5 frames to save time)
-            if fid % 5 == 0 and len(vo.trajectory) > 1:
-                traj_img = traj_plotter.render_2d(
-                    vo.trajectory, vo.map_points, vo.keyframes
+            cur_feats = vo._last_features   # pts2d of current-frame keypoints
+
+            # ── Map Viewer (rebuild into separate 800x800 window) ─────── #
+            if fid % 3 == 0 or map_last_frame < 0:
+                map_cache = render_map_viewer(
+                    map_points  = vo.map_points,
+                    keyframes   = vo.keyframes,
+                    trajectory  = vo.trajectory if len(vo.trajectory) > 1
+                                  else np.zeros((1, 3)),
+                    loop_events = loop_events,
+                    panel_w     = MAP_W,
+                    panel_h     = MAP_H,
+                    vo_state    = vo.state.name,
                 )
-                cv2.imshow("Trajectory", traj_img)
+                map_last_frame = fid
+
+            # ── Frame Viewer (proportional, matches actual source aspect ratio) ── #
+            frame_panel = render_frame_viewer(
+                frame      = frame,
+                cur_feats  = cur_feats,
+                vo_state   = vo.state.name,
+                num_kf     = len(vo.keyframes),
+                num_lm     = len(vo.map_points),
+                num_kp     = len(cur_feats) if cur_feats else 0,
+                process_ms = stats.process_ms,
+                is_kf      = stats.is_keyframe,
+                panel_w    = FRAME_W,
+                panel_h    = FRAME_H,
+            )
+
+            # ── Show separate windows ─────────────────────────────────── #
+            cv2.imshow("Frame Viewer", frame_panel)
+            cv2.imshow("Map Viewer", map_cache)
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
             if key == ord('s'):
-                _save_snapshot(vo, fid)
+                _save_snapshot(vo, fid, loop_events)
+            if key == ord('l'):
+                print(f"  Loop closures: {len(loop_events)}")
+                for ev in loop_events:
+                    print(f"    KF{ev['query_kf_id']} <-> KF{ev['match_kf_id']}  "
+                          f"bow={ev['bow_score']}  inliers={ev['geo_inliers']}")
+            if key == ord('r'):
+                print(f"  Relocalization: {reloc_status}")
+                if relocalizer:
+                    print(f"  {relocalizer.summary()}")
 
-        # ── Console logging ──────────────────────────────────────────────── #
-        if gt is not None:
-            # Table-style every 50 frames with side-by-side GT comparison
-            if fid % 50 == 0:
-                pos    = last_good_T[:3, 3]
-                gt_idx = min(fid, len(gt) - 1)
-                gt_pos = gt[gt_idx][:3, 3]
+        # Console log every 10 frames
+        if fid % 10 == 0:
+            pos    = vo.T_world_cam[:3, 3]
+            kf_tag = " [KF]"   if stats.is_keyframe     else ""
+            lp_tag = f" [LOOP x{len(loop_events)}]" if loop_events else ""
+            rl_tag = f" [RELOC]" if reloc_successes > 0 and fid < 50 else ""
+            print(f"  Frame {fid:4d} | "
+                  f"matched={stats.num_matched:4d} | "
+                  f"inliers={stats.num_inliers:4d} | "
+                  f"MPs={len(vo.map_points):5d} | "
+                  f"pos=({pos[0]:6.2f},{pos[1]:6.2f},{pos[2]:6.2f}) | "
+                  f"{stats.process_ms:.1f}ms{kf_tag}{lp_tag}{rl_tag}")
 
-                print(
-                    f"{fid:>6}  "
-                    f"{pos[0]:>8.2f} {pos[2]:>8.2f}  "
-                    f"{gt_pos[0]:>8.2f} {gt_pos[2]:>8.2f}  "
-                    f"{len(vo.keyframes):>5} {len(vo.map_points):>7} "
-                    f"{len(loop_events_received):>6} {vo.state.name:<8} {dt_ms:>6.1f}"
-                )
-                frame_log.append({
-                    "frame"      : fid,
-                    "est_x"      : round(float(pos[0]), 3),
-                    "est_y"      : round(float(pos[1]), 3),
-                    "est_z"      : round(float(pos[2]), 3),
-                    "gt_x"       : round(float(gt_pos[0]), 3),
-                    "gt_z"       : round(float(gt_pos[2]), 3),
-                    "keyframes"  : len(vo.keyframes),
-                    "map_points" : len(vo.map_points),
-                    "loops"      : len(loop_events_received),
-                    "state"      : vo.state.name,
-                    "process_ms" : round(dt_ms, 2),
-                    "inliers"    : stats.num_inliers,
-                    "matched"    : stats.num_matched,
-                })
-        else:
-            # Original every-10-frames style (non-GT modes)
-            if fid % 10 == 0:
-                pos    = vo.T_world_cam[:3, 3]
-                kf_tag = " [KF]" if stats.is_keyframe else ""
-                print(
-                    f"  Frame {fid:4d} | "
-                    f"matched={stats.num_matched:4d} | "
-                    f"inliers={stats.num_inliers:4d} | "
-                    f"MPs={len(vo.map_points):5d} | "
-                    f"pos=({pos[0]:6.2f},{pos[1]:6.2f},{pos[2]:6.2f}) | "
-                    f"{stats.process_ms:.1f}ms{kf_tag}"
-                )
-
-    total_time = time.perf_counter() - t_run_start
-
-    # ── Stop background threads ───────────────────────────────────────────── #
-    if mapper is not None:
+    # ── Shutdown threads ──────────────────────────────────────────────── #
+    if mapper:
         mapper.stop()
-    if loop_detector is not None:
+    if loop_detector:
         loop_detector.stop()
 
-    # ── Save vocabulary ───────────────────────────────────────────────────── #
-    if (args.save_vocab
-            and loop_detector is not None
-            and hasattr(loop_detector, "_recognizer")
-            and loop_detector._recognizer):
+    # ── Save vocabulary ───────────────────────────────────────────────── #
+    if args.save_vocab and loop_detector and loop_detector._recognizer:
         loop_detector._recognizer.vocab.save(args.save_vocab)
         print(f"Vocabulary saved → {args.save_vocab}")
 
-    # ── Save KITTI-format pose file ───────────────────────────────────────── #
-    out_poses = None
-    if args.kitti and all_poses:
-        out_poses = f"results_{timestamp}.txt"
-        with open(out_poses, "w") as f:
-            for T in all_poses:
-                f.write(" ".join(f"{v:.6e}" for v in T[:3].flatten()) + "\n")
+    # ── Stage 5: Save map ─────────────────────────────────────────────── #
+    if args.save_map and not args.reloc_only:
+        MapStorage.save(
+            path          = args.save_map,
+            vo            = vo,
+            loop_detector = loop_detector,
+        )
 
-    # ── Final summary ─────────────────────────────────────────────────────── #
-    print('─' * 60)
-    print()
-    print("=== Run Summary ===")
-    print(f"  Source            : {source_tag}")
-    print(f"  Total frames      : {len(all_poses)}")
-    print(f"  Keyframes         : {len(vo.keyframes)}")
-    print(f"  Map points        : {len(vo.map_points)}")
-    print(f"  Loop closures     : {len(loop_events_received)}")
-    print(f"  Final state       : {vo.state.name}")
-    print(f"  Total runtime     : {total_time:.1f}s  "
-          f"({len(all_poses) / total_time:.1f} fps avg)")
-    if out_poses:
-        print(f"  Poses saved       : {out_poses}  ({len(all_poses)} lines)")
-    if json_path:
-        print(f"  JSON saved        : {json_path}")
+    # ── Save poses (from run_kitti) ───────────────────────────────────── #
+    out_path_poses = "results_demo.txt"
+    with open(out_path_poses, "w") as f:
+        for T in all_poses:
+            f.write(" ".join(f"{v:.6e}" for v in T[:3].flatten()) + "\n")
 
-    # ── evo evaluation commands (printed when GT is available) ────────────── #
-    if gt is not None and out_poses:
-        print()
-        print("=== Evaluation Commands ===")
-        print(f"  evo_ape kitti {args.gt_poses} {out_poses} \\")
-        print(f"      --plot_mode xz --save_plot logs/ate_{timestamp}.pdf \\")
-        print(f"      --save_results logs/ate_{timestamp}.zip")
-        print()
-        print(f"  evo_traj kitti {args.gt_poses} {out_poses} \\")
-        print(f"      --ref {args.gt_poses} --plot_mode xz \\")
-        print(f"      --save_plot logs/traj_{timestamp}.pdf")
-        print()
-        print(f"  evo_rpe kitti {args.gt_poses} {out_poses} \\")
-        print(f"      --delta 100 --delta_unit m \\")
-        print(f"      --save_plot logs/rpe_{timestamp}.pdf")
+    # ── Final summary ─────────────────────────────────────────────────── #
+    print("\n" + vo.summary())
+    print(f"=== Run Summary ===")
+    print(f"  Blurry frames skipped : {blurry_count}")
+    print(f"  Loop closures         : {len(loop_events)}")
+    print(f"  PGO runs              : {pgo.n_optimizations}")
+    print(f"  PGO backend           : {pgo.summary()}")
+    print(f"  Poses saved to        : {out_path_poses}")
+    
+    if mapper:
+        print(f"  BA runs               : {mapper.n_ba_runs}")
+        print(f"  Points culled         : {mapper.n_pts_culled}")
+        print(f"  KFs culled            : {mapper.n_kfs_culled}")
+    if relocalizer:
+        print(f"  Relocalization        : {relocalizer.summary()}")
 
-    # ── Save structured JSON (KITTI mode only) ────────────────────────────── #
-    if json_path is not None:
-        json_data = {
-            "meta": {
-                "source"          : source_tag,
-                "timestamp"       : timestamp,
-                "total_frames"    : len(all_poses),
-                "total_runtime_s" : round(total_time, 2),
-                "avg_fps"         : round(len(all_poses) / total_time, 2),
-            },
-            "config": {
-                "scale_mode"    : cfg.scale_mode,
-                "max_features"  : cfg.max_features,
-                "min_inliers"   : cfg.min_inliers,
-                "kf_min_frames" : cfg.kf_min_frames,
-                "kf_max_frames" : cfg.kf_max_frames,
-            },
-            "camera": {
-                "fx": round(float(camera.fx), 4),
-                "fy": round(float(camera.fy), 4),
-                "cx": round(float(camera.cx), 4),
-                "cy": round(float(camera.cy), 4),
-            },
-            "results": {
-                "keyframes"      : len(vo.keyframes),
-                "map_points"     : len(vo.map_points),
-                "loop_closures"  : len(loop_events_received),
-                "final_state"    : vo.state.name,
-                "poses_file"     : out_poses,
-            },
-            "loop_events" : loop_events_received,
-            "frame_log"   : frame_log,
-        }
-        with open(json_path, "w") as f:
-            json.dump(json_data, f, indent=2)
+    # ── Loop detector summary ─────────────────────────────────────────── #
+    if loop_detector:
+        print(f"\n=== Loop Detector Detail ===")
+        print(f"  {loop_detector.summary()}")
+        print(f"  Suppressed events : {loop_detector.n_suppressed}")
 
-    print("Done.")
-
-    # ── Final trajectory plot ─────────────────────────────────────────────── #
+    # ── Final trajectory plot ─────────────────────────────────────────── #
     if len(vo.trajectory) > 1:
         out_path = args.output or "trajectory.png"
         fig = plot_trajectory_static(
             vo.trajectory, vo.map_points, vo.keyframes,
-            save_path=out_path,
-            title=f"VO Trajectory ({len(vo.trajectory)} frames, "
-                  f"{len(vo.keyframes)} keyframes)",
+            save_path = out_path,
+            title     = (f"Visual SLAM  |  {len(vo.trajectory)} frames  |  "
+                         f"{len(vo.keyframes)} KFs  |  "
+                         f"{len(loop_events)} loops"),
         )
-        print(f"\nTrajectory saved to: {out_path}")
+        print(f"\nTrajectory saved → {out_path}")
         if show_gui and matplotlib.get_backend() != "Agg":
             plt.show()
-        else:
-            print(f"Trajectory saved to: {out_path}")
         plt.close(fig)
 
     if show_gui:
         cv2.destroyAllWindows()
 
 
-def _save_snapshot(vo, fid):
+# ═══════════════════════════════════════════════════════════════════════ #
+#  Snapshot helper                                                        #
+# ═══════════════════════════════════════════════════════════════════════ #
+
+def _save_snapshot(vo, fid, loop_events=None):
     path = f"snapshot_frame{fid:04d}.png"
     if len(vo.trajectory) > 1:
         fig = plot_trajectory_static(
             vo.trajectory, vo.map_points, vo.keyframes,
-            save_path=path,
-            title=f"Snapshot @ frame {fid}",
+            save_path = path,
+            title     = f"Snapshot @ frame {fid}  |  {len(loop_events or [])} loops",
         )
         plt.close(fig)
         print(f"  → Snapshot saved: {path}")
 
 
-# ═══════════════════════════════════════════════════════════════════════════ #
-#  CLI                                                                        #
-# ═══════════════════════════════════════════════════════════════════════════ #
+# ═══════════════════════════════════════════════════════════════════════ #
+#  CLI                                                                    #
+# ═══════════════════════════════════════════════════════════════════════ #
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Visual Odometry Demo")
+    parser = argparse.ArgumentParser(
+        description="VSLAM Demo — VO + Local Mapping + Loop Detection + Map Reuse"
+    )
 
     src = parser.add_mutually_exclusive_group()
-    src.add_argument("--kitti",  type=str, help="Path to KITTI image folder")
+    src.add_argument("--kitti",  type=str, help="Path to KITTI image_0 folder")
     src.add_argument("--video",  type=str, help="Path to video file")
     src.add_argument("--webcam", action="store_true", help="Use webcam (device 0)")
 
-    # KITTI evaluation extras
-    parser.add_argument("--calib",    type=str, default=None,
-                        help="Path to KITTI calib.txt (enables exact K instead of preset)")
-    parser.add_argument("--gt-poses", type=str, default=None, dest="gt_poses",
-                        help="Path to KITTI GT poses file; enables table output and evo cmds")
+    parser.add_argument("--fx",   type=float)
+    parser.add_argument("--fy",   type=float)
+    parser.add_argument("--cx",   type=float)
+    parser.add_argument("--cy",   type=float)
+    parser.add_argument("--hfov", type=float)
 
-    # Output
-    parser.add_argument("--output", type=str, default="trajectory.png",
-                        help="Output trajectory image path")
-    parser.add_argument("--no-gui", action="store_true",
-                        help="Disable OpenCV windows (headless mode)")
-
-    # Camera intrinsics (video / webcam)
-    parser.add_argument("--fx",   type=float, help="Focal length x (pixels)")
-    parser.add_argument("--fy",   type=float, help="Focal length y (pixels)")
-    parser.add_argument("--cx",   type=float, help="Principal point x (pixels)")
-    parser.add_argument("--cy",   type=float, help="Principal point y (pixels)")
-    parser.add_argument("--hfov", type=float,
-                        help="Horizontal FOV in degrees (fallback if fx/fy not given)")
-
-    # Stage 2 / 3 flags (ported from run_kitti.py)
-    parser.add_argument("--no-loop",    action="store_true",
-                        help="Disable loop detection (Stage 3)")
-    parser.add_argument("--save-vocab", type=str, default=None, dest="save_vocab",
-                        help="Save BoW vocabulary to .pkl after run")
-    parser.add_argument("--load-vocab", type=str, default=None, dest="load_vocab",
-                        help="Load pre-built BoW vocabulary from .pkl")
+    parser.add_argument("--no-local-map", action="store_true")
+    parser.add_argument("--no-loop",      action="store_true")
+    parser.add_argument("--save-vocab",   type=str)
+    parser.add_argument("--load-vocab",   type=str)
+    parser.add_argument("--save-map",     type=str)
+    parser.add_argument("--load-map",     type=str)
+    parser.add_argument("--reloc-frames", type=int, default=30)
+    parser.add_argument("--reloc-only",   action="store_true")
+    parser.add_argument("--min-loop-gap", type=int, default=200, help="Frames between loop callbacks (dead zone)")
+    parser.add_argument("--output",       type=str, default="trajectory.png")
+    parser.add_argument("--no-gui",       action="store_true")
+    parser.add_argument("--blur-threshold", type=float, default=80.0)
 
     args = parser.parse_args()
     run(args)

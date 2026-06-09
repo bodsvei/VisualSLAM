@@ -25,14 +25,21 @@ from .camera import CameraModel
 class MapPoint:
     """A single triangulated 3-D point."""
     xyz          : np.ndarray       # (3,) float64 – world coordinates
-    ref_idx      : int              # index in reference frame's keypoints
-    cur_idx      : int              # index in current  frame's keypoints
-    reproj_err   : float = 0.0     # reprojection error (pixels)
-    observations : int  = 2        # how many frames have seen it
-    descriptor   : Optional[np.ndarray] = None   # attached descriptor (optional)
+    ref_idx      : int              # legacy: index in reference frame
+    cur_idx      : int              # legacy: index in current frame
+    reproj_err   : float = 0.0     
+    descriptor   : Optional[np.ndarray] = None
+    
+    # NEW: Dictionary mapping kf_id -> index in kf.features.pts2d
+    obs          : dict = field(default_factory=dict)
+
+    @property
+    def observations(self) -> int:
+        # Backward compatibility for your stats
+        return len(self.obs) if self.obs else 2
 
     def __repr__(self):
-        return f"MapPoint(xyz={self.xyz.round(2)}, err={self.reproj_err:.2f}px)"
+        return f"MapPoint(xyz={self.xyz.round(2)}, obs={self.observations}, err={self.reproj_err:.2f}px)"
 
 
 # ═══════════════════════════════════════════════════════════════════════ #
@@ -76,6 +83,8 @@ class Triangulator:
         T_cur_world : np.ndarray,   # 4×4 SE3 – current  camera pose  (world→cam)
         pts_ref     : np.ndarray,   # (N, 2) pixel coords in reference frame
         pts_cur     : np.ndarray,   # (N, 2) pixel coords in current frame
+        ref_kf_id   : int,                          # NEW
+        cur_kf_id   : int,                          # NEW
         idx_ref     : Optional[np.ndarray] = None,  # keypoint indices
         idx_cur     : Optional[np.ndarray] = None,
         descriptors : Optional[np.ndarray] = None,
@@ -129,6 +138,8 @@ class Triangulator:
                     cur_idx    = int(idx_cur[i]),
                     reproj_err = err,
                     descriptor = desc,
+                    # FIX 1: Populate the obs dictionary immediately
+                    obs        = {ref_kf_id: int(idx_ref[i]), cur_kf_id: int(idx_cur[i])} 
                 )
                 map_points.append(mp)
                 final_valid[i] = True
@@ -164,7 +175,10 @@ class Triangulator:
         """Require positive depth in BOTH cameras within [min_depth, max_depth]."""
         def depths_in(T):
             R, t = T[:3, :3], T[:3, 3]
-            z = (R @ xyz.T).T[:, 2] + t[2]
+            # Full affine: (R @ xyz.T + t[:, None]).T — all three components
+            # of t matter; the old code only added t[2] which was wrong for
+            # any camera not at the world origin.
+            z = (R @ xyz.T + t[:, np.newaxis]).T[:, 2]
             return z
 
         z_ref = depths_in(T_ref_world)
@@ -196,7 +210,7 @@ class Triangulator:
         eps    = 1e-9
 
         cos_angle = np.sum(v_ref * v_cur, axis=1) / (
-            (norm_r.ravel() + eps) * (norm_c.ravel() + eps)
+            norm_r.ravel() * norm_c.ravel() + eps
         )
         cos_angle = np.clip(cos_angle, -1, 1)
         angles_deg = np.degrees(np.arccos(cos_angle))
@@ -213,7 +227,9 @@ class Triangulator:
     ) -> float:
         """Symmetric reprojection error (average of both views)."""
         def reproject(P, X):
-            h = P @ np.append(X, 1.0)
+            # np.append without axis can crash when X is not strictly 1-D;
+            # np.r_[] concatenates on 1-D views and is always safe.
+            h = P @ np.r_[X.ravel(), 1.0]
             return h[:2] / (h[2] + 1e-12)
 
         e1 = np.linalg.norm(reproject(P_ref, xyz) - pt_ref)
