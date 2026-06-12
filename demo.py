@@ -83,13 +83,30 @@ from vo_slam.relocalization import Relocalization
 
 def kitti_loader(folder: str):
     p     = Path(folder)
-    files = sorted(p.glob("*.png")) + sorted(p.glob("*.jpg"))
-    if not files:
+    # Detect if we are in a KITTI-style sequence (image_0 and image_1 sibling folders)
+    is_kitti_stereo = False
+    p_right = None
+    if p.name == "image_0":
+        p_right = p.parent / "image_1"
+        if p_right.exists():
+            is_kitti_stereo = True
+
+    files_l = sorted(p.glob("*.png")) + sorted(p.glob("*.jpg"))
+    if not files_l:
         raise FileNotFoundError(f"No images in {folder}")
-    for i, f in enumerate(files):
-        img = cv2.imread(str(f))
-        if img is not None:
-            yield img, i
+    
+    files_r = []
+    if is_kitti_stereo:
+        files_r = sorted(p_right.glob("*.png")) + sorted(p_right.glob("*.jpg"))
+
+    for i in range(len(files_l)):
+        img_l = cv2.imread(str(files_l[i]))
+        img_r = None
+        if is_kitti_stereo and i < len(files_r):
+            img_r = cv2.imread(str(files_r[i]))
+            
+        if img_l is not None:
+            yield img_l, img_r, i
 
 
 def video_loader(path: str):
@@ -99,7 +116,7 @@ def video_loader(path: str):
         ret, frame = cap.read()
         if not ret:
             break
-        yield frame, fid
+        yield frame, None, fid
         fid += 1
     cap.release()
 
@@ -111,7 +128,7 @@ def webcam_loader(device: int = 0):
         ret, frame = cap.read()
         if not ret:
             break
-        yield frame, fid
+        yield frame, None, fid
         fid += 1
     cap.release()
 
@@ -131,9 +148,9 @@ def is_blurry(frame: np.ndarray, threshold: float = 80.0) -> bool:
 
 _FRUSTUM_PTS = np.array([
     [ 0,  0],   # apex (camera position)
-    [-6,  9],   # left wing
-    [ 0,  6],   # notch
-    [ 6,  9],   # right wing
+    [-6, -9],   # left wing
+    [ 0, -6],   # notch
+    [ 6, -9],   # right wing
 ], dtype=np.float32)
 
 
@@ -202,24 +219,30 @@ def render_map_viewer(
 
     # ── Auto-scale: fit the trajectory spread into the panel ─────────── #
     scale = 20.0                  # pixels per metre (default)
-    if len(trajectory) > 3:
-        span_x = float(np.ptp(trajectory[:, 0]))
-        span_z = float(np.ptp(trajectory[:, 2]))
-        span   = max(span_x, span_z, 1.0)
-        # Use 80% of the smaller panel dimension
-        scale  = min(panel_w, panel_h) * 0.80 / span
-        scale  = float(np.clip(scale, 4.0, 120.0))
-
-    # ── Center map onto the most recent position ─────────────────────── #
     if len(trajectory) > 0:
-        curr_pos = trajectory[-1]
-        curr_x, curr_z = float(curr_pos[0]), float(curr_pos[2])
-    else:
-        curr_x, curr_z = 0.0, 0.0
+        # Find the bounding box of the entire trajectory
+        min_x, max_x = float(np.min(trajectory[:, 0])), float(np.max(trajectory[:, 0]))
+        min_z, max_z = float(np.min(trajectory[:, 2])), float(np.max(trajectory[:, 2]))
+        
+        span_x = max_x - min_x
+        span_z = max_z - min_z
+        span   = max(span_x, span_z, 1.0)
+        
+        # Use 80% of the smaller panel dimension to leave a margin
+        scale  = min(panel_w, panel_h) * 0.80 / span
+        
+        # Lower the minimum clip limit (0.01) so large trajectories can fully zoom out
+        scale  = float(np.clip(scale, 0.01, 120.0))
 
-    # Adjust base offsets dynamically so the camera remains dead center
-    cx = panel_w / 2.0 - curr_x * scale
-    cz = panel_h / 2.0 + curr_z * scale
+        # Center map onto the midpoint of the entire trajectory
+        mid_x = (min_x + max_x) / 2.0
+        mid_z = (min_z + max_z) / 2.0
+    else:
+        mid_x, mid_z = 0.0, 0.0
+
+    # Adjust base offsets dynamically so the entire trajectory is centered
+    cx = panel_w / 2.0 - mid_x * scale
+    cz = panel_h / 2.0 + mid_z * scale
 
     # ── Map point cloud ───────────────────────────────────────────────── #
     if map_points:
@@ -233,16 +256,15 @@ def render_map_viewer(
         for px in pxs[mask]:
             cv2.circle(canvas, tuple(px), 1, (30, 30, 200), -1)   # red dots
 
-    # ── Keyframe spine (grey connecting line) ─────────────────────────── #
-    if len(keyframes) > 1:
-        kf_pxs = []
-        for kf in keyframes:
-            pos = kf.T_world_cam[:3, 3]
+    # ── Full trajectory spine (grey connecting line) ─────────────────── #
+    if len(trajectory) > 1:
+        traj_pxs = []
+        for pos in trajectory:
             px  = int(cx + pos[0] * scale)
             pz  = int(cz - pos[2] * scale)
-            kf_pxs.append([px, pz])
-        kf_pxs = np.array(kf_pxs, dtype=np.int32)
-        cv2.polylines(canvas, [kf_pxs.reshape(-1, 1, 2)], False,
+            traj_pxs.append([px, pz])
+        traj_pxs = np.array(traj_pxs, dtype=np.int32)
+        cv2.polylines(canvas, [traj_pxs.reshape(-1, 1, 2)], False,
                       (55, 55, 55), 1, cv2.LINE_AA)
 
     # ── Loop closure lines (cyan) ─────────────────────────────────────── #
@@ -381,8 +403,21 @@ def run(args):
 
     # ── Camera ───────────────────────────────────────────────────────── #
     if args.kitti:
-        camera = CameraModel.kitti()
-        print(f"Camera: KITTI preset  {camera}")
+        # Try to load calib.txt from parent folder
+        p_kitti = Path(args.kitti)
+        calib_file = p_kitti.parent / "calib.txt"
+        if calib_file.exists():
+            try:
+                from run_kitti import load_calib
+                K, baseline = load_calib(calib_file)
+                camera = CameraModel.from_matrix(K, width=1241, height=376, baseline=baseline)
+                print(f"Camera: KITTI calib found  {camera}")
+            except Exception as e:
+                print(f"[WARNING] Failed to parse KITTI calib: {e}")
+                camera = CameraModel.kitti()
+        else:
+            camera = CameraModel.kitti()
+            print(f"Camera: KITTI preset (seq 00)  {camera}")
 
     elif args.webcam or args.video:
         cap = cv2.VideoCapture(0 if args.webcam else args.video)
@@ -465,9 +500,7 @@ def run(args):
     mapper = None
     if not args.no_local_map:
         mapper = LocalMapper(
-            camera         = camera,
-            map_points_ref = vo.map_points,
-            keyframes_ref  = vo.keyframes,
+            vo             = vo,
             verbose        = False,
         )
         mapper.start()
@@ -511,7 +544,6 @@ def run(args):
             consistency         = 3,
             temporal_window     = 20,
             vocab_build_at      = 50,
-            min_loop_gap_frames = args.min_loop_gap,   # Transferred from run_kitti
             verbose             = True,
         )
         print(f"LoopDetector   : ON (min_loop_gap={args.min_loop_gap} frames)")
@@ -549,10 +581,6 @@ def run(args):
     show_gui     = not args.no_gui
     blurry_count = 0
     
-    # Track all poses identically to run_kitti
-    last_good_T = np.eye(4)
-    all_poses   = []
-
     # Cache map panel — only rebuild every 3 frames
     map_cache       = np.zeros((MAP_H, MAP_W, 3), dtype=np.uint8)
     map_last_frame  = -999
@@ -560,10 +588,10 @@ def run(args):
     print(f"\nRunning. Keys: q=quit  s=snapshot  l=loops  r=reloc status\n")
 
     # ── Main loop ─────────────────────────────────────────────────────── #
-    for frame, fid in source:
+    for img_l, img_r, fid in source:
 
         # ── Blur check ────────────────────────────────────────────────── #
-        if is_blurry(frame, threshold=args.blur_threshold):
+        if is_blurry(img_l, threshold=args.blur_threshold):
             blurry_count += 1
             if show_gui:
                 cv2.waitKey(1)
@@ -571,13 +599,13 @@ def run(args):
 
         # ── Stage 5: Relocalization attempt ───────────────────────────── #
         if not reloc_done and relocalizer is not None:
-            gray_r = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2GRAY)
             orb_r  = cv2.ORB_create(nfeatures=1000)
-            kps_r, descs_r = orb_r.detectAndCompute(gray_r, None)
+            kps_l, descs_l = orb_r.detectAndCompute(gray_l, None)
 
-            if descs_r is not None and len(descs_r) > 20:
-                pts_r  = np.array([kp.pt for kp in kps_r], dtype=np.float32)
-                result = relocalizer.relocalize(descs_r, pts_r)
+            if descs_l is not None and len(descs_l) > 20:
+                pts_l  = np.array([kp.pt for kp in kps_l], dtype=np.float32)
+                result = relocalizer.relocalize(descs_l, pts_l)
 
                 if result.success:
                     vo.T_world_cam = result.T_world_cam.copy()
@@ -594,13 +622,8 @@ def run(args):
                 print(f"  [Reloc] Failed after {reloc_attempts} frames — starting fresh")
 
         # ── VO process ────────────────────────────────────────────────── #
-        stats = vo.process(frame, timestamp=fid / 30.0)
+        stats = vo.process(img_l, img_right=img_r, timestamp=fid / 30.0)
         
-        # Track poses continuously
-        if np.isfinite(vo.T_world_cam).all():
-            last_good_T = vo.T_world_cam.copy()
-        all_poses.append(last_good_T.copy())
-
         # ── Build displays (GUI only) ─────────────────────────────────── #
         if show_gui:
 
@@ -622,7 +645,7 @@ def run(args):
 
             # ── Frame Viewer (proportional, matches actual source aspect ratio) ── #
             frame_panel = render_frame_viewer(
-                frame      = frame,
+                frame      = img_l,
                 cur_feats  = cur_feats,
                 vo_state   = vo.state.name,
                 num_kf     = len(vo.keyframes),
@@ -688,7 +711,7 @@ def run(args):
     # ── Save poses (from run_kitti) ───────────────────────────────────── #
     out_path_poses = "results_demo.txt"
     with open(out_path_poses, "w") as f:
-        for T in all_poses:
+        for T in vo.pose_graph.poses:
             f.write(" ".join(f"{v:.6e}" for v in T[:3].flatten()) + "\n")
 
     # ── Final summary ─────────────────────────────────────────────────── #

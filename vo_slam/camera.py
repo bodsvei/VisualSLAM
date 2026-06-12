@@ -17,7 +17,7 @@ from typing import Optional, Tuple
 @dataclass
 class CameraModel:
     """
-    Pinhole camera with optional distortion.
+    Pinhole camera with optional distortion and stereo baseline.
 
     Attributes
     ----------
@@ -25,6 +25,7 @@ class CameraModel:
     cx, cy : principal point in pixels
     width, height : image dimensions
     dist_coeffs : (k1, k2, p1, p2 [, k3]) OpenCV convention
+    baseline : horizontal distance between cameras in meters
     """
 
     fx: float
@@ -34,10 +35,16 @@ class CameraModel:
     width: int
     height: int
     dist_coeffs: np.ndarray = field(default_factory=lambda: np.zeros(4))
+    baseline: float = 0.0
 
     # ------------------------------------------------------------------ #
     #  Properties                                                          #
     # ------------------------------------------------------------------ #
+
+    @property
+    def bf(self) -> float:
+        """Baseline * fx: useful for depth = bf / disparity."""
+        return self.baseline * self.fx
 
     @property
     def K(self) -> np.ndarray:
@@ -63,6 +70,7 @@ class CameraModel:
         width: int,
         height: int,
         dist_coeffs: Optional[np.ndarray] = None,
+        baseline: float = 0.0,
     ) -> "CameraModel":
         return cls(
             fx=float(K[0, 0]),
@@ -72,6 +80,7 @@ class CameraModel:
             width=width,
             height=height,
             dist_coeffs=np.zeros(4) if dist_coeffs is None else np.asarray(dist_coeffs, dtype=np.float64),
+            baseline=baseline,
         )
 
     @classmethod
@@ -123,7 +132,7 @@ class CameraModel:
 
     def project(self, pts3d: np.ndarray) -> np.ndarray:
         """
-        Project Nx3 world points (camera frame) → Nx2 pixel coordinates.
+        Project Nx3 world points (camera frame) → Nx2 pixel coordinates (Left).
         Filters points behind the camera.
         """
         pts3d = np.asarray(pts3d, dtype=np.float64)
@@ -140,6 +149,20 @@ class CameraModel:
             )
             uv[valid] = proj.reshape(-1, 2)
         return uv
+
+    def project_right(self, pts3d: np.ndarray) -> np.ndarray:
+        """
+        Project Nx3 world points (camera frame) → Nx2 pixel coordinates (Right).
+        Assumes rectified stereo where right camera is shifted by -baseline in X.
+        u_right = fx * (X - baseline) / Z + cx = u_left - (fx * baseline) / Z
+        """
+        uv_left = self.project(pts3d)
+        z = pts3d[:, 2]
+        valid = z > 1e-6
+        uv_right = uv_left.copy()
+        if valid.any():
+            uv_right[valid, 0] -= self.bf / z[valid]
+        return uv_right
 
     def backproject(self, pts2d: np.ndarray, depth: float = 1.0) -> np.ndarray:
         """

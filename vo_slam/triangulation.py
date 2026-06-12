@@ -83,8 +83,8 @@ class Triangulator:
         T_cur_world : np.ndarray,   # 4×4 SE3 – current  camera pose  (world→cam)
         pts_ref     : np.ndarray,   # (N, 2) pixel coords in reference frame
         pts_cur     : np.ndarray,   # (N, 2) pixel coords in current frame
-        ref_kf_id   : int,                          # NEW
-        cur_kf_id   : int,                          # NEW
+        ref_kf_id   : int,          # ID of the reference keyframe
+        cur_kf_id   : int,          # ID of the current keyframe/frame
         idx_ref     : Optional[np.ndarray] = None,  # keypoint indices
         idx_cur     : Optional[np.ndarray] = None,
         descriptors : Optional[np.ndarray] = None,
@@ -138,13 +138,86 @@ class Triangulator:
                     cur_idx    = int(idx_cur[i]),
                     reproj_err = err,
                     descriptor = desc,
-                    # FIX 1: Populate the obs dictionary immediately
-                    obs        = {ref_kf_id: int(idx_ref[i]), cur_kf_id: int(idx_cur[i])} 
                 )
+                # Record observations
+                mp.obs[ref_kf_id] = int(idx_ref[i])
+                mp.obs[cur_kf_id] = int(idx_cur[i])
+                
                 map_points.append(mp)
                 final_valid[i] = True
 
         return map_points, final_valid
+
+    def triangulate_stereo(
+        self,
+        left_feats  : FrameFeatures,
+        right_feats : FrameFeatures,
+        matches     : MatchResult,
+        kf_id       : int,
+        T_world_cam : np.ndarray,
+    ) -> List[MapPoint]:
+        """
+        Triangulate 3-D points from a single stereo pair.
+        X = (u - cx) * Z / fx
+        Y = (v - cy) * Z / fy
+        Z = (fx * baseline) / (u_left - u_right)
+        """
+        if len(matches) == 0:
+            return []
+
+        pts_l = matches.pts_ref
+        pts_r = matches.pts_cur
+        disparity = pts_l[:, 0] - pts_r[:, 0]
+        
+        # Filter negative or too-small disparity
+        valid = disparity > 0.1
+        if not valid.any():
+            return []
+            
+        pts_l     = pts_l[valid]
+        disparity = disparity[valid]
+        indices_l = matches.idx_ref[valid]
+        
+        # bf = baseline * fx
+        depths = self.camera.bf / disparity
+        
+        # Filter depth
+        depth_mask = (depths >= self.min_depth) & (depths <= self.max_depth)
+        if not depth_mask.any():
+            return []
+            
+        pts_l     = pts_l[depth_mask]
+        depths    = depths[depth_mask]
+        indices_l = indices_l[depth_mask]
+        
+        # ── Compute 3-D in camera frame ──────────────────────────────── #
+        z = depths
+        x = (pts_l[:, 0] - self.camera.cx) * z / self.camera.fx
+        y = (pts_l[:, 1] - self.camera.cy) * self.camera.fy # wait, kitti fy is usually fx
+        # Usually X = (u - cx) * Z / fx, Y = (v - cy) * Z / fy
+        y = (pts_l[:, 1] - self.camera.cy) * z / self.camera.fy
+        
+        pts_cam = np.stack([x, y, z], axis=1) # (N, 3)
+        
+        # ── Transform to world frame ────────────────────────────────── #
+        # p_world = T_world_cam @ p_cam
+        R = T_world_cam[:3, :3]
+        t = T_world_cam[:3, 3]
+        pts_world = (R @ pts_cam.T).T + t
+        
+        map_points = []
+        for i in range(len(pts_world)):
+            mp = MapPoint(
+                xyz        = pts_world[i],
+                ref_idx    = int(indices_l[i]),
+                cur_idx    = -1, # no current frame index in this context
+                reproj_err = 0.0,
+                descriptor = left_feats.descriptors[indices_l[i]],
+            )
+            mp.obs[kf_id] = int(indices_l[i])
+            map_points.append(mp)
+            
+        return map_points
 
     def compute_median_depth(
         self,
@@ -175,10 +248,7 @@ class Triangulator:
         """Require positive depth in BOTH cameras within [min_depth, max_depth]."""
         def depths_in(T):
             R, t = T[:3, :3], T[:3, 3]
-            # Full affine: (R @ xyz.T + t[:, None]).T — all three components
-            # of t matter; the old code only added t[2] which was wrong for
-            # any camera not at the world origin.
-            z = (R @ xyz.T + t[:, np.newaxis]).T[:, 2]
+            z = (R @ xyz.T).T[:, 2] + t[2]
             return z
 
         z_ref = depths_in(T_ref_world)
@@ -210,7 +280,7 @@ class Triangulator:
         eps    = 1e-9
 
         cos_angle = np.sum(v_ref * v_cur, axis=1) / (
-            norm_r.ravel() * norm_c.ravel() + eps
+            (norm_r.ravel() + eps) * (norm_c.ravel() + eps)
         )
         cos_angle = np.clip(cos_angle, -1, 1)
         angles_deg = np.degrees(np.arccos(cos_angle))
@@ -227,9 +297,7 @@ class Triangulator:
     ) -> float:
         """Symmetric reprojection error (average of both views)."""
         def reproject(P, X):
-            # np.append without axis can crash when X is not strictly 1-D;
-            # np.r_[] concatenates on 1-D views and is always safe.
-            h = P @ np.r_[X.ravel(), 1.0]
+            h = P @ np.append(X, 1.0)
             return h[:2] / (h[2] + 1e-12)
 
         e1 = np.linalg.norm(reproject(P_ref, xyz) - pt_ref)

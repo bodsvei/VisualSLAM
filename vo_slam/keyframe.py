@@ -17,7 +17,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Dict
 from .features import FrameFeatures
 from .triangulation import MapPoint
 from .motion import rotation_angle_deg
@@ -51,6 +51,34 @@ class Keyframe:
     map_points  : List[MapPoint] = field(default_factory=list)
     image       : Optional[np.ndarray] = None   # store for visualisation
 
+    # Fast lookup cache: feature_index -> MapPoint
+    _feat_to_mp : Dict[int, MapPoint] = field(default_factory=dict, repr=False)
+
+    def __post_init__(self):
+        self.build_map_point_lookup()
+
+    def build_map_point_lookup(self):
+        """Build a fast lookup table from feature index to MapPoint."""
+        self._feat_to_mp = {}
+        for mp in self.map_points:
+            idx = mp.obs.get(self.kf_id)
+            if idx is not None:
+                self._feat_to_mp[idx] = mp
+
+    def get_map_point_at_feature(self, feat_idx: int) -> Optional[MapPoint]:
+        """Resolve which map point was observed at this feature index."""
+        # Try cache first
+        mp = self._feat_to_mp.get(feat_idx)
+        if mp is not None:
+            return mp
+        
+        # Fallback: search (if cache was not updated after adding MPs)
+        for mp in self.map_points:
+            if mp.obs.get(self.kf_id) == feat_idx:
+                self._feat_to_mp[feat_idx] = mp
+                return mp
+        return None
+
     @property
     def position(self) -> np.ndarray:
         """Camera centre in world frame (3,)."""
@@ -63,8 +91,9 @@ class Keyframe:
     @property
     def T_cam_world(self) -> np.ndarray:
         """Inverted pose (world → cam)."""
-        R = self.R_world_cam
-        t = self.T_world_cam[:3, 3:4]
+        T = self.T_world_cam   # Atomic read of the reference
+        R = T[:3, :3]
+        t = T[:3, 3:4]
         T_inv = np.eye(4)
         T_inv[:3, :3] = R.T
         T_inv[:3, 3:4] = -R.T @ t

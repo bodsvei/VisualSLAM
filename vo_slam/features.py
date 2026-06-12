@@ -90,11 +90,14 @@ class FeatureDetector:
         fast_threshold: int  = 20,
         orb_scale     : float = 1.2,
         orb_levels    : int  = 8,
+        use_clahe     : bool = True,
     ):
         self.detector_type = detector_type
         self.max_features  = max_features
         self.grid_rows     = grid_rows
         self.grid_cols     = grid_cols
+        self.use_clahe     = use_clahe
+        self._clahe        = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
         # --- build detector ---
         if detector_type == DetectorType.ORB:
@@ -127,6 +130,9 @@ class FeatureDetector:
     def detect_and_compute(self, img: np.ndarray, mask: Optional[np.ndarray] = None) -> FrameFeatures:
         """Detect keypoints and compute descriptors from a gray image."""
         gray = self._to_gray(img)
+        
+        if self.use_clahe:
+            gray = self._clahe.apply(gray)
 
         if self.detector_type == DetectorType.FAST_ORB:
             kps = self._fast.detect(gray, mask)
@@ -238,6 +244,55 @@ class FeatureMatcher:
             idx_cur  = idx_c,
             pts_ref  = ref.pts2d[idx_r],
             pts_cur  = cur.pts2d[idx_c],
+            distances= dists,
+        )
+
+    def match_stereo(
+        self,
+        left       : FrameFeatures,
+        right      : FrameFeatures,
+        max_y_delta: float = 2.0,
+    ) -> MatchResult:
+        """
+        Match left -> right with stereo constraints.
+        Constraints:
+          1. Lowe's ratio test
+          2. y-coordinates must be close (rectified stereo)
+          3. u_left > u_right (positive disparity)
+        """
+        if len(left) == 0 or len(right) == 0:
+            return self._empty_result()
+
+        matches = self._matcher.knnMatch(left.descriptors, right.descriptors, k=2)
+        good    = self._ratio_filter(matches)
+
+        stereo_good = []
+        for m in good:
+            pt_l = left.pts2d[m.queryIdx]
+            pt_r = right.pts2d[m.trainIdx]
+
+            # y-alignment constraint
+            if abs(pt_l[1] - pt_r[1]) > max_y_delta:
+                continue
+
+            # positive disparity constraint (u_left > u_right)
+            if pt_l[0] <= pt_r[0]:
+                continue
+
+            stereo_good.append(m)
+
+        if not stereo_good:
+            return self._empty_result()
+
+        idx_l = np.array([m.queryIdx for m in stereo_good], dtype=np.int32)
+        idx_r = np.array([m.trainIdx for m in stereo_good], dtype=np.int32)
+        dists = np.array([m.distance for m in stereo_good], dtype=np.float32)
+
+        return MatchResult(
+            idx_ref  = idx_l,
+            idx_cur  = idx_r,
+            pts_ref  = left.pts2d[idx_l],
+            pts_cur  = right.pts2d[idx_r],
             distances= dists,
         )
 

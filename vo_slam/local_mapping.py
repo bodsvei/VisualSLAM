@@ -42,23 +42,23 @@ from .camera            import CameraModel
 class LocalMapper:
     def __init__(
         self,
-        camera          : CameraModel,
-        map_points_ref  : List[MapPoint],
-        keyframes_ref   : List[Keyframe],
+        vo,                      # VisualOdometry instance
         n_ba_iters      : int   = 10,
         local_window    : int   = 20,
         spatial_window  : int   = 500,    # max MPs from spatial fallback
         verbose         : bool  = False,
     ):
-        self.camera         = camera
-        self.map_points     = map_points_ref
-        self.keyframes      = keyframes_ref
+        self.vo             = vo
+        self.camera         = vo.camera
+        self.map_points     = vo.map_points
+        self.keyframes      = vo.keyframes
+        self.pose_graph     = vo.pose_graph
         self.n_ba_iters     = n_ba_iters
         self.local_window   = local_window
         self.spatial_window = spatial_window
         self.verbose        = verbose
 
-        self.covis_graph    = CovisibilityGraph()
+        self.covis_graph    = CovisibilityGraph(min_shared=10)
         self._queue         = queue.Queue()
         self._thread        : Optional[threading.Thread] = None
         self._stop_flag     = threading.Event()
@@ -127,15 +127,15 @@ class LocalMapper:
         # Step 1: update covisibility graph
         self.covis_graph.add_keyframe(kf)
 
-        # Step 2: build local KF window
+        # ── Fix B: build covis connections BEFORE computing the window ─ #
+        # Get a preliminary local window based on current covis state, then
+        # update the graph so the final window benefits from fresh connections.
+        prelim_kfs = self.covis_graph.get_local_window(kf, max_kfs=self.local_window)
+        self._assign_visible_mps_to_kfs(prelim_kfs)
+
+        # Step 2: re-compute local KF window with updated covis graph
         local_kfs    = self.covis_graph.get_local_window(kf, max_kfs=self.local_window)
         local_kf_ids = {k.kf_id for k in local_kfs}
-
-        # ── Fix B: build covis connections from reprojection ─────────── #
-        # Assign MPs from global map to KFs that can see them.
-        # This compensates for kf.map_points only containing MPs from
-        # the triangulation moment (not all subsequently matched MPs).
-        self._assign_visible_mps_to_kfs(local_kfs)
 
         # ── Fix A: if covis window is too small, use temporal window ─── #
         if len(local_kfs) < 2:
@@ -164,6 +164,8 @@ class LocalMapper:
               f"fixed_KFs={len(fixed_kfs)} "
               f"MPs={len(local_mps)}")
 
+        old_poses = {kf.kf_id: kf.T_world_cam.copy() for kf in local_kfs}
+
         opt_kfs, kept_mps, culled_mps = local_bundle_adjustment(
             local_kfs  = local_kfs,
             fixed_kfs  = fixed_kfs,
@@ -174,14 +176,44 @@ class LocalMapper:
         )
         self.n_ba_runs += 1
 
+        if self.vo.pose_graph is not None:
+            self._update_pose_graph(local_kfs, old_poses)
+            
+            # Also update the current tracking pose in VO
+            latest_kf = local_kfs[-1]
+            T_old = old_poses.get(latest_kf.kf_id)
+            if T_old is not None:
+                # Correction from the latest keyframe in the window
+                corr = latest_kf.T_world_cam @ np.linalg.inv(T_old)
+                self.vo.T_world_cam = corr @ self.vo.T_world_cam
+
         # Step 6: cull
         with self._lock:
+            # Temporarily disable map point culling so the tracker doesn't get starved
             self.map_points[:], n_mp = cull_map_points(self.map_points)
             self.keyframes[:],  n_kf = cull_keyframes(
                 self.keyframes, self.covis_graph
             )
             self.n_pts_culled += n_mp
             self.n_kfs_culled += n_kf
+
+    def _update_pose_graph(self, local_kfs: List[Keyframe], old_poses: Dict[int, np.ndarray]):
+        """Propagate BA corrections from local keyframes to the full trajectory."""
+        if not self.vo or not self.vo.pose_graph:
+            return
+
+        # 1. Compute corrections: T_new @ inv(T_old)
+        corrections = {}
+        for kf in local_kfs:
+            T_old = old_poses.get(kf.kf_id)
+            if T_old is not None:
+                corrections[kf.kf_id] = kf.T_world_cam @ np.linalg.inv(T_old)
+
+        if not corrections:
+            return
+
+        # 2. Update poses in the graph using PoseGraph utility
+        self.vo.pose_graph.transform_all(local_kfs, corrections)
 
     # ------------------------------------------------------------------ #
     #  Fix A: temporal window fallback                                    #
@@ -194,7 +226,7 @@ class LocalMapper:
         """
         n      = min(self.local_window, len(self.keyframes))
         recent = self.keyframes[-n:]
-        return list(recent)
+        return list(reversed(recent))  # Newest first
 
     # ------------------------------------------------------------------ #
     #  Fix B: assign visible MPs to keyframes                             #
@@ -235,14 +267,32 @@ class LocalMapper:
                 (v >= 0) & (v < self.camera.height)
             )
 
+            # Get indices of points matching both constraints
             visible_indices = np.where(in_front)[0][in_image]
-            newly_added     = 0
-            for idx in visible_indices:
+            
+            # Extract corresponding valid pixel locations aligned with visible_indices
+            u_img = u[in_image]
+            v_img = v[in_image]
+            
+            newly_added = 0
+            kf_pts2d    = kf.features.pts2d
+            
+            for i, idx in enumerate(visible_indices):
                 mp = recent_mps[idx]
                 if id(mp) not in existing_ids:
-                    kf.map_points.append(mp)
-                    existing_ids.add(id(mp))
-                    newly_added += 1
+                    proj_uv = np.array([u_img[i], v_img[i]])
+                    
+                    if len(kf_pts2d) > 0:
+                        # Find nearest 2D feature in the keyframe
+                        dists = np.linalg.norm(kf_pts2d - proj_uv, axis=1)
+                        best_feat_idx = int(np.argmin(dists))
+                        
+                        # Only associate if the reprojection error is tight (e.g., within 4.0 pixels)
+                        if dists[best_feat_idx] < 4.0:
+                            kf.map_points.append(mp)
+                            mp.obs[kf.kf_id] = best_feat_idx  # This automatically increments mp.observations!
+                            existing_ids.add(id(mp))
+                            newly_added += 1
 
             if newly_added > 0:
                 # Re-update co-visibility connections for this KF

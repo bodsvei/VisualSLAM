@@ -1,47 +1,57 @@
 import cv2
 import numpy as np
 
-K = np.eye(3)
+# Camera 1 at origin
+# Camera 2 translated by (1, 0, 0) and rotated 90 deg around Y
+# X_world = X_1
+# X_2 = R_{21} X_1 + t_{21}
+# Let's say cam 2 is looking left (turned left by 90 deg). 
+# World point at (0, 0, 5) -> Cam 1: (0, 0, 5).
+# Cam 2 is at (1, 0, 0) in world, facing (-1, 0, 0).
+# So in Cam 2, the point (0, 0, 5) should be at Z=1, X=5.
+# Let's just create 5 random 3D points and project them.
 
-# Camera 1 at origin, Camera 2 at z=1 (x1 = x2 + [0,0,1] => x1 = x2 + t => t=[0,0,1])
-# If x1 = R x2 + t, then t = [0, 0, 1]
-# If x2 = R x1 + t, then t = [0, 0, -1]
+P1 = np.array([[1,0,0,0],
+               [0,1,0,0],
+               [0,0,1,0]], dtype=float)
 
-# Let's generate points
-np.random.seed(42)
-pts_w = np.random.uniform(-5, 5, (100, 3)).astype(np.float64)
-pts_w[:, 2] += 20  # points in front of both cameras
+# 90 deg around Y
+R = np.array([[0, 0, -1],
+              [0, 1, 0],
+              [1, 0, 0]], dtype=float)
+t = np.array([[0], [0], [1]], dtype=float)
 
-pts1 = pts_w[:, :2] / pts_w[:, 2:3]
+P2 = np.hstack((R, t))
 
-# T_w_1 = I
-# T_w_2: moved 1 unit along +X and rotated 10 deg around Y
-angle = np.radians(10)
-R_true = np.array([
-    [np.cos(angle), 0, np.sin(angle)],
-    [0, 1, 0],
-    [-np.sin(angle), 0, np.cos(angle)]
-])
-t_true = np.array([1.0, 0.0, 0.0]) # T_w_2 translation
+K = np.array([[100, 0, 50],
+              [0, 100, 50],
+              [0,   0,  1]], dtype=float)
 
-# x_w = R_w_2 * x_2 + t_w_2 => x_2 = R_w_2^T * (x_w - t_w_2)
-pts2_3d = (pts_w - t_true) @ R_true
-pts2 = pts2_3d[:, :2] / pts2_3d[:, 2:3]
+pts3d = np.random.rand(10, 3) * 5 + np.array([0, 0, 10])
+pts3d = pts3d.astype(np.float32)
+
+pts1 = []
+pts2 = []
+for p in pts3d:
+    p1 = K @ P1 @ np.append(p, 1)
+    pts1.append((p1[:2] / p1[2]))
+    
+    p2 = K @ P2 @ np.append(p, 1)
+    pts2.append((p2[:2] / p2[2]))
+
+pts1 = np.array(pts1)
+pts2 = np.array(pts2)
 
 E, mask = cv2.findEssentialMat(pts1, pts2, K, method=cv2.RANSAC, prob=0.999, threshold=1.0)
-_, R_est, t_est, _ = cv2.recoverPose(E, pts1, pts2, K, mask=mask)
+_, R_rec, t_rec, mask = cv2.recoverPose(E, pts1, pts2, K)
 
-print("R_est:\n", np.round(R_est, 3))
-print("t_est:\n", np.round(t_est.ravel(), 3))
+print("Original R:")
+print(R)
+print("Recovered R:")
+print(R_rec)
 
-print("R_true (world->cam2):\n", np.round(R_true.T, 3))
-print("R_true (cam2->world):\n", np.round(R_true, 3))
+print("Original t (normalized):")
+print(t / np.linalg.norm(t))
+print("Recovered t:")
+print(t_rec)
 
-print("If x1 = R*x2 + t:")
-t1 = t_true / np.linalg.norm(t_true)
-print("t should be:", np.round(t1, 3))
-
-print("If x2 = R*x1 + t:")
-t2 = -R_true.T @ t_true
-t2 = t2 / np.linalg.norm(t2)
-print("t should be:", np.round(t2, 3))

@@ -204,19 +204,19 @@ class TrajectoryPlot:
         # Trajectory
         if len(trajectory) > 1:
             ax.plot(trajectory[:, ix], trajectory[:, iy],
-                    color=self.traj_color, linewidth=2.0, alpha=1.0, label="Trajectory")
+                    color=self.traj_color, linewidth=3.0, alpha=1.0, label="Trajectory")
             # Current position
             ax.scatter(trajectory[-1, ix], trajectory[-1, iy],
-                       c="white", s=40, zorder=5)
+                       c="white", s=60, zorder=5)
             # Start position
             ax.scatter(trajectory[0, ix], trajectory[0, iy],
-                       c='white', marker='s', s=30, zorder=6, label="Start")
+                       c='white', marker='s', s=40, zorder=6, label="Start")
 
         # Keyframe positions — blue dots, no per-KF arrows
         if keyframes:
             pos_x = [kf.T_world_cam[ix, 3] for kf in keyframes]
             pos_y = [kf.T_world_cam[iy, 3] for kf in keyframes]
-            ax.scatter(pos_x, pos_y, s=18, c=self.kf_color,
+            ax.scatter(pos_x, pos_y, s=25, c=self.kf_color,
                        zorder=4, label="Keyframes", linewidths=0)
 
             # Single camera-direction arrow on the LATEST keyframe only.
@@ -424,18 +424,18 @@ def plot_trajectory_static(
 
         if len(trajectory) > 1:
             ax.plot(trajectory[:, ix], trajectory[:, iy],
-                    color="red", linewidth=2.0, alpha=1.0, label="Trajectory")
+                    color="red", linewidth=3.5, alpha=1.0, label="Trajectory")
             # Start position
             ax.scatter(trajectory[0, ix], trajectory[0, iy],
-                       c='white', marker='s', s=30, zorder=6, label="Start")
+                       c='white', marker='s', s=60, zorder=6, label="Start")
             # Current position
             ax.scatter(trajectory[-1, ix], trajectory[-1, iy],
-                       c="white", s=40, zorder=5)
+                       c="white", s=80, zorder=5)
 
         if keyframes:
             pos_x = [kf.T_world_cam[ix, 3] for kf in keyframes]
             pos_y = [kf.T_world_cam[iy, 3] for kf in keyframes]
-            ax.scatter(pos_x, pos_y, s=18, c="#4A90D9",
+            ax.scatter(pos_x, pos_y, s=30, c="#4A90D9",
                        zorder=4, label="Keyframes", linewidths=0)
 
             # Camera-direction arrow on the LATEST keyframe only

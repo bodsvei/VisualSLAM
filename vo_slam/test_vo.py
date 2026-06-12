@@ -241,7 +241,7 @@ class TestTriangulator:
         pts_ref = np.array([proj(P_ref, p) for p in pts3d], np.float32)
         pts_cur = np.array([proj(P_cur, p) for p in pts3d], np.float32)
 
-        mps, mask = tri.triangulate(T_ref, T_cur, pts_ref, pts_cur)
+        mps, mask = tri.triangulate(T_ref, T_cur, pts_ref, pts_cur, ref_kf_id=0, cur_kf_id=1)
         assert len(mps) > 0
         # Check a random recovered point is close to GT
         for mp in mps[:5]:

@@ -105,7 +105,6 @@ class PoseGraphOptimizer:
         self.n_iters = n_iters
         self.verbose = verbose
         self._lock   = threading.Lock()
-        self.loop_edges = []
 
         self.n_optimizations = 0
         self.loop_edges: List[dict] = []
@@ -139,59 +138,30 @@ class PoseGraphOptimizer:
         else:
             print(f"[PGO] ✗ Skipped (poses={result.n_poses}, "
                   f"loop_edges={result.n_loop_edges})\n")
-            
-    def add_loop_edge(self, kf_id_a: int, kf_id_b: int, relative_pose: np.ndarray):
-        """Store a loop constraint. relative_pose: 4x4 T_a→b (cam a to cam b)"""
-        self.loop_edges.append({
-            "from": kf_id_a,
-            "to":   kf_id_b,
-            "T_rel": relative_pose.copy(),
-            "information": np.eye(6) * 50.0   # confidence weight
-        })
-        print(f"[PGO] Added loop edge: KF{kf_id_a} → KF{kf_id_b}")
 
     # ------------------------------------------------------------------ #
     #  Core dispatch                                                       #
     # ------------------------------------------------------------------ #
 
-    def optimize(self) -> bool:
-        """Run pose graph optimization using stored loop edges."""
-        if not self.loop_edges:
-            return False
-
-        print(f"[PGO] Optimizing with {len(self.loop_edges)} loop edges...")
-        result = self._optimize()   # calls g2o or scipy (already implemented in your file)
-        if result.success:
-            # Updates to keyframes and trajectory are already done inside _optimize()
-            # Clear processed edges to avoid double application
-            self.loop_edges.clear()
-            print(f"[PGO] Optimization successful: {result.n_poses} poses, {result.iterations} iters")
-        else:
-            print("[PGO] Optimization failed.")
-        return result.success
-        
-    def optimize(self):
-        """
-        Runs the graph optimization and updates keyframe poses.
-        """
-        if not self.loop_edges:
-            return None
+    def _optimize(self) -> PGOResult:
+        with self._lock:
+            kfs = self.vo.keyframes
+            if self.verbose:
+                print(f"[PGO] Triggered: n_kfs={len(kfs)}, n_loop_edges={len(self.loop_edges)}")
             
-        print("[PGO] Running optimization...")
-        
-        # 1. Update internal graph with self.loop_edges
-        # (This is where you would call optimizer.add_edge(...) for g2o)
-        
-        # 2. Run the solver
-        # self.optimizer.optimize()
-        
-        # 3. Propagate results back to your KFs
-        # for kf in self.vo.keyframes:
-        #     new_pose = self.optimizer.vertex(kf.kf_id).estimate()
-        #     kf.T_world_cam = new_pose 
-        
-        self.n_optimizations += 1
-        return PGOResult(success=True, iterations=self.n_iters)
+            if len(kfs) < 3:
+                return PGOResult(False, len(kfs), 0, 0)
+            
+            if not self.loop_edges:
+                return PGOResult(False, len(kfs), 0, 0)
+
+            if G2O_AVAILABLE:
+                try:
+                    return self._optimize_g2o(kfs)
+                except Exception:
+                    print("[PGO] g2o optimization failed — falling back to scipy")
+                    traceback.print_exc()
+            return self._optimize_scipy(kfs)
 
     # ------------------------------------------------------------------ #
     #  g2o PGO                                                            #
@@ -309,72 +279,61 @@ class PoseGraphOptimizer:
         self.n_optimizations += 1
 
         # ── Write back corrected poses ───────────────────────────────── #
-        # Step 1: update every keyframe's T_world_cam from the optimised vertex.
-        kf_corrections: dict[int, np.ndarray] = {}   # frame_id → corrected T
-        for kf in kfs:
-            v = optimizer.vertex(kf.kf_id)
-            if v is None:
-                print(f"[PGO] WARNING: vertex missing for KF {kf.kf_id}")
-                continue
+        if not kfs:
+            return PGOResult(True, 0, n_added, self.n_iters)
+            
+        old_latest_T = kfs[-1].T_world_cam.copy()
+        old_poses = {kf.kf_id: kf.T_world_cam.copy() for kf in kfs}
+        
+        with self.vo.lock:
+            for kf in kfs:
+                v    = optimizer.vertex(kf.kf_id)
+                if v is None:
+                    continue
 
-            se3  = v.estimate()
-            R_cw = se3.rotation().matrix()
-            t_cw = se3.translation()
-            T = np.eye(4)
-            T[:3, :3] = R_cw.T
-            T[:3,  3] = -R_cw.T @ t_cw
-            kf.T_world_cam = T
-            kf_corrections[kf.frame_id] = T
+                se3  = v.estimate()
+                R_cw = se3.rotation().matrix()
+                t_cw = se3.translation()
+                T = np.eye(4)
+                T[:3,:3] = R_cw.T
+                T[:3, 3] = -R_cw.T @ t_cw
+                kf.T_world_cam = T
 
-        # Step 2: propagate corrections to every frame in pose_graph.poses.
-        # Frames between two corrected keyframes are linearly interpolated
-        # so the trajectory has no sudden jumps at keyframe boundaries.
-        pg_poses = self.vo.pose_graph.poses
-        n_pg     = len(pg_poses)
-        sorted_kfs = sorted(kfs, key=lambda k: k.frame_id)
+            # Update current tracking pose to maintain relative continuity
+            new_latest_T = kfs[-1].T_world_cam
+            correction = new_latest_T @ np.linalg.inv(old_latest_T)
+            self.vo.T_world_cam = correction @ self.vo.T_world_cam
 
-        for ki in range(len(sorted_kfs)):
-            kf_a = sorted_kfs[ki]
-            if kf_a.frame_id not in kf_corrections:
-                continue
-            T_a = kf_corrections[kf_a.frame_id]
-
-            # Write the keyframe pose itself
-            if kf_a.frame_id < n_pg:
-                pg_poses[kf_a.frame_id] = T_a.copy()
-
-            # Interpolate to next keyframe (or end of sequence)
-            if ki + 1 < len(sorted_kfs):
-                kf_b = sorted_kfs[ki + 1]
-                T_b  = kf_corrections.get(kf_b.frame_id)
-                end_fid = kf_b.frame_id
-            else:
-                T_b     = None
-                end_fid = n_pg
-
-            if T_b is None:
-                # No next correction: copy T_a to all remaining frames
-                for fid in range(kf_a.frame_id + 1, end_fid):
-                    if fid < n_pg:
-                        pg_poses[fid] = T_a.copy()
-            else:
-                # Linear (SLERP-approximated) interpolation on translation;
-                # rotation is approximated with linear blend of matrices
-                # (good enough for PGO corrections which are small).
-                n_steps = max(end_fid - kf_a.frame_id, 1)
-                for fid in range(kf_a.frame_id + 1, end_fid):
-                    if fid >= n_pg:
-                        break
-                    alpha = (fid - kf_a.frame_id) / n_steps
-                    T_interp = np.eye(4)
-                    T_interp[:3, 3]   = (1 - alpha) * T_a[:3, 3] + alpha * T_b[:3, 3]
-                    # Blend rotation matrices and re-orthogonalise via SVD
-                    R_blend = (1 - alpha) * T_a[:3, :3] + alpha * T_b[:3, :3]
-                    U, _, Vt = np.linalg.svd(R_blend)
-                    T_interp[:3, :3] = U @ Vt
-                    pg_poses[fid] = T_interp
+            self._update_map_and_graph(kfs, old_poses)
 
         return PGOResult(True, len(kfs), n_added, self.n_iters)
+
+    def _update_map_and_graph(self, kfs: List[Keyframe], old_poses: dict):
+        """
+        Update all map points and non-keyframe trajectory poses after optimization.
+        """
+        # 1. Build a map of kf_id -> correction matrix
+        # Delta = T_new_world_kf @ inv(T_old_world_kf)
+        corrections = {}
+        for kf in kfs:
+            T_old = old_poses.get(kf.kf_id)
+            if T_old is not None:
+                corrections[kf.kf_id] = kf.T_world_cam @ np.linalg.inv(T_old)
+
+        if not corrections:
+            return
+
+        # 2. Update map points by "dragging" them with their reference keyframe
+        for mp in self.vo.map_points:
+            if not mp.obs: continue
+            ref_kf_id = min(mp.obs.keys())
+            corr = corrections.get(ref_kf_id)
+            if corr is not None:
+                p_hom = np.append(mp.xyz, 1.0)
+                mp.xyz = (corr @ p_hom)[:3]
+
+        # 3. Update all poses in the pose graph (keyframes and non-keyframes)
+        self.vo.pose_graph.transform_all(kfs, corrections)
 
     # ------------------------------------------------------------------ #
     #  scipy PGO fallback                                                  #
@@ -448,51 +407,22 @@ class PoseGraphOptimizer:
                        options={'maxiter': self.n_iters * 20, 'ftol': 1e-8})
 
         x_opt = res.x
+        if not kfs:
+             return PGOResult(res.success, 0, len(loops), self.n_iters)
+             
+        old_latest_T = kfs[-1].T_world_cam.copy()
+        old_poses = {kf.kf_id: kf.T_world_cam.copy() for kf in kfs}
 
-        # Step 1: update keyframe poses
-        kf_corrections: dict = {}
-        sorted_kfs = sorted(kfs, key=lambda k: k.frame_id)
         for i, kf in enumerate(kfs):
             T = unpack(x_opt, i)
             kf.T_world_cam = T
-            kf_corrections[kf.frame_id] = T
 
-        # Step 2: interpolate corrections to every inter-keyframe pose
-        pg_poses = self.vo.pose_graph.poses
-        n_pg     = len(pg_poses)
+        # Update current tracking pose to maintain relative continuity
+        new_latest_T = kfs[-1].T_world_cam
+        correction = new_latest_T @ np.linalg.inv(old_latest_T)
+        self.vo.T_world_cam = correction @ self.vo.T_world_cam
 
-        for ki in range(len(sorted_kfs)):
-            kf_a = sorted_kfs[ki]
-            if kf_a.frame_id not in kf_corrections:
-                continue
-            T_a = kf_corrections[kf_a.frame_id]
-            if kf_a.frame_id < n_pg:
-                pg_poses[kf_a.frame_id] = T_a.copy()
-
-            if ki + 1 < len(sorted_kfs):
-                kf_b    = sorted_kfs[ki + 1]
-                T_b     = kf_corrections.get(kf_b.frame_id)
-                end_fid = kf_b.frame_id
-            else:
-                T_b     = None
-                end_fid = n_pg
-
-            if T_b is None:
-                for fid in range(kf_a.frame_id + 1, end_fid):
-                    if fid < n_pg:
-                        pg_poses[fid] = T_a.copy()
-            else:
-                n_steps = max(end_fid - kf_a.frame_id, 1)
-                for fid in range(kf_a.frame_id + 1, end_fid):
-                    if fid >= n_pg:
-                        break
-                    alpha = (fid - kf_a.frame_id) / n_steps
-                    T_interp = np.eye(4)
-                    T_interp[:3, 3] = (1 - alpha) * T_a[:3, 3] + alpha * T_b[:3, 3]
-                    R_blend = (1 - alpha) * T_a[:3, :3] + alpha * T_b[:3, :3]
-                    U, _, Vt = np.linalg.svd(R_blend)
-                    T_interp[:3, :3] = U @ Vt
-                    pg_poses[fid] = T_interp
+        self._update_map_and_graph(kfs, old_poses)
 
         self.n_optimizations += 1
         return PGOResult(res.success, n, len(loops), self.n_iters)

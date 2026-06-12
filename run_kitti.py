@@ -17,6 +17,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Tuple
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -48,13 +49,30 @@ def setup_logger(log_path: Path) -> logging.Logger:
 #  KITTI helpers                                                          #
 # ═══════════════════════════════════════════════════════════════════════ #
 
-def load_calib(path: Path) -> np.ndarray:
+def load_calib(path: Path) -> Tuple[np.ndarray, float]:
+    P0 = None
+    P1 = None
     with open(path) as f:
         for line in f:
             if line.startswith("P0:"):
-                vals = list(map(float, line.strip().split()[1:]))
-                return np.array(vals).reshape(3, 4)[:3, :3]
-    raise ValueError("P0 not found in calib.txt")
+                P0 = np.array(list(map(float, line.strip().split()[1:]))).reshape(3, 4)
+            if line.startswith("P1:"):
+                P1 = np.array(list(map(float, line.strip().split()[1:]))).reshape(3, 4)
+    
+    if P0 is None or P1 is None:
+        # Fallback for synthetic or other cases
+        with open(path) as f:
+            for line in f:
+                if line.startswith("P0:"):
+                    vals = list(map(float, line.strip().split()[1:]))
+                    K = np.array(vals).reshape(3, 4)[:3, :3]
+                    return K, 0.537 # Default KITTI baseline
+        raise ValueError("P0 or P1 not found in calib.txt")
+        
+    K = P0[:3, :3]
+    fx = K[0, 0]
+    baseline = abs(P1[0, 3] - P0[0, 3]) / fx
+    return K, baseline
 
 
 def load_poses(path: Path):
@@ -92,9 +110,9 @@ def run(args):
     log.info(f"{'='*60}")
 
     # ── Camera ───────────────────────────────────────────────────────── #
-    K      = load_calib(CALIB_FILE)
+    K, baseline = load_calib(CALIB_FILE)
     gt     = load_poses(GT_FILE)
-    camera = CameraModel.from_matrix(K, width=1241, height=376)
+    camera = CameraModel.from_matrix(K, width=1241, height=376, baseline=baseline)
     log.info(f"Camera : {camera}")
     log.info(f"K matrix:\n{camera.K}")
 
@@ -103,7 +121,7 @@ def run(args):
         detector_type = DetectorType.ORB,
         max_features  = 2000,
         min_inliers   = 20,
-        scale_mode    = "fixed",
+        scale_mode    = "fixed",              # Direct metric from stereo if BF provided
         fixed_scale   = 1.0,
         kf_min_frames = 3,
         kf_max_frames = 20,
@@ -120,10 +138,8 @@ def run(args):
     mapper = None
     if not args.no_local_map:
         mapper = LocalMapper(
-            camera         = camera,
-            map_points_ref = vo.map_points,
-            keyframes_ref  = vo.keyframes,
-            verbose        = False,
+            vo      = vo,
+            verbose = False,
         )
         log.info("LocalMapper : ON")
     else:
@@ -158,11 +174,10 @@ def run(args):
         camera_K            = camera.K,
         on_loop_detected    = on_loop if not args.no_loop else None,
         min_bow_score       = 0.012,
-        min_geo_inliers     = 30,
+        min_geo_inliers     = 15,
         consistency         = 3,
         temporal_window     = 20,
         vocab_build_at      = 50,
-        min_loop_gap_frames = args.min_loop_gap,   # FIX 1
         verbose             = True,
     )
     log.info(f"LoopDetector: min_loop_gap={args.min_loop_gap} frames")
@@ -187,12 +202,13 @@ def run(args):
     t_run_start = time.perf_counter()
 
     # ── Run ───────────────────────────────────────────────────────────── #
-    images      = sorted(IMG_DIR.glob("*.png"))
-    last_good_T = np.eye(4)
-    all_poses   = []
+    IMG_DIR_L = KITTI_ROOT / "sequences" / SEQ / "image_0"
+    IMG_DIR_R = KITTI_ROOT / "sequences" / SEQ / "image_1"
+    images_l  = sorted(IMG_DIR_L.glob("*.png"))
+    images_r  = sorted(IMG_DIR_R.glob("*.png"))
 
     log.info(f"")
-    log.info(f"Sequence {SEQ}: {len(images)} frames  |  {len(gt)} GT poses")
+    log.info(f"Sequence {SEQ}: {len(images_l)} frames  |  {len(gt)} GT poses")
     log.info(f"{'─'*95}")
     log.info(
         f"{'Frame':>6}  {'est_x':>8} {'est_z':>8}  "
@@ -201,19 +217,17 @@ def run(args):
     )
     log.info(f"{'─'*95}")
 
-    for i, img_path in enumerate(images):
-        img   = cv2.imread(str(img_path))
+    for i in range(len(images_l)):
+        img_l = cv2.imread(str(images_l[i]))
+        img_r = cv2.imread(str(images_r[i]))
+        
         t0    = time.perf_counter()
-        stats = vo.process(img, timestamp=i / 10.0)
+        stats = vo.process(img_l, img_right=img_r, timestamp=i / 10.0)
         dt_ms = (time.perf_counter() - t0) * 1000
 
-        # Always record a pose to guarantee 1:1 KITTI alignment
-        if np.isfinite(vo.T_world_cam).all():
-            last_good_T = vo.T_world_cam.copy()
-        all_poses.append(last_good_T.copy())
-
         if i % 50 == 0:
-            pos    = last_good_T[:3, 3]
+
+            pos    = vo.T_world_cam[:3, 3]
             gt_pos = gt[i][:3, 3]
             row = (
                 f"{i:>6}  "
@@ -255,40 +269,15 @@ def run(args):
         loop_detector._recognizer.vocab.save(args.save_vocab)
         log.info(f"Vocabulary saved → {args.save_vocab}")
 
-    # ── Save poses & Propagate Deltas ─────────────────────────────────── #
+    # ── Save poses ────────────────────────────────────────────────────── #
     out_path = f"results_{SEQ}.txt"
-    log.info(f"Propagating backend optimizations to intermediate frames...")
+    log.info(f"Writing final poses (including PGO/BA corrections)...")
     
-    last_fid = 0
-    T_delta = np.eye(4)
-
-    for kf in vo.keyframes:
-        fid = kf.frame_id
-        if fid >= len(all_poses):
-            continue
-
-        T_opt = kf.T_world_cam
-        T_raw = all_poses[fid]
-        
-        try:
-            # T_delta maps raw -> optimized: T_opt = T_delta @ T_raw
-            T_delta = T_opt @ np.linalg.inv(T_raw)
-        except np.linalg.LinAlgError:
-            pass
-
-        # Apply this delta block to all preceding intermediate frames
-        for i in range(last_fid, fid + 1):
-            all_poses[i] = T_delta @ all_poses[i]
-            
-        last_fid = fid + 1
-
-    # Apply the final block's delta to any leftover tail frames
-    for i in range(last_fid, len(all_poses)):
-        all_poses[i] = T_delta @ all_poses[i]
+    final_poses = vo.pose_graph.poses
 
     # Write strictly to disk
     with open(out_path, "w") as f:
-        for T in all_poses:
+        for T in final_poses:
             if not np.isfinite(T).all():
                 T = np.eye(4)
             f.write(" ".join(f"{v:.6e}" for v in T[:3].flatten()) + "\n")
@@ -298,7 +287,7 @@ def run(args):
     log.info(f"")
     log.info(f"=== Run Summary ===")
     log.info(f"  Sequence          : {SEQ}")
-    log.info(f"  Total frames      : {len(images)}")
+    log.info(f"  Total frames      : {len(images_l)}")
     log.info(f"  Keyframes         : {len(vo.keyframes)}")
     log.info(f"  Map points        : {len(vo.map_points)}")
     log.info(f"  Loop closures     : {len(loop_events_received)}")
@@ -306,7 +295,7 @@ def run(args):
     log.info(f"  PGO backend       : {pgo.summary()}")
     log.info(f"  Final state       : {vo.state.name}")
     log.info(f"  Total runtime     : {total_time:.1f}s  "
-             f"({len(images)/total_time:.1f} fps avg)")
+             f"({len(images_l)/total_time:.1f} fps avg)")
     if mapper:
         log.info(f"  BA runs           : {mapper.n_ba_runs}")
         log.info(f"  Points culled     : {mapper.n_pts_culled}")
@@ -339,9 +328,9 @@ def run(args):
         "meta": {
             "sequence"       : SEQ,
             "timestamp"      : timestamp,
-            "total_frames"   : len(images),
+            "total_frames"   : len(images_l),
             "total_runtime_s": round(total_time, 2),
-            "avg_fps"        : round(len(images) / total_time, 2),
+            "avg_fps"        : round(len(images_l) / total_time, 2),
         },
         "config": {
             "scale_mode"         : cfg.scale_mode,

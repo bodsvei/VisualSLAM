@@ -14,7 +14,7 @@ from .covisibility import CovisibilityGraph
 
 def cull_map_points(
     map_points      : List[MapPoint],
-    min_observations: int   = 3,
+    min_observations: int   = 2,
     max_reproj_err  : float = 3.0,
 ) -> Tuple[List[MapPoint], int]:
     """
