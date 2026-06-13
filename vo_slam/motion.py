@@ -34,8 +34,7 @@ class PoseEstimate:
         """Return 4×4 SE3 [R | t; 0 1] in the ref←cur convention.
 
         This encodes T_{ref←cur}: points transform FROM current INTO reference.
-        Callers that need T_{cur←ref} must call invert_pose() on the result,
-        or use -R.T @ t / R.T directly.
+        Chaining forward (T_world_cur = T_world_ref @ T_ref_cur) uses this direction.
         """
         T = np.eye(4)
         T[:3, :3] = self.R
@@ -43,10 +42,8 @@ class PoseEstimate:
         return T
 
     def transform_matrix(self) -> np.ndarray:
-        """Deprecated alias for transform_matrix_ref_from_cur().
-
-        Returns T_{ref←cur}. Retained for backward compatibility — prefer
-        the explicit name to avoid direction confusion.
+        """Returns T_{ref←cur}. This is the 'forward' direction for right-multiply point chaining.
+        If your convention requires T_{cur←ref}, call invert_pose() on this result.
         """
         return self.transform_matrix_ref_from_cur()
 

@@ -324,7 +324,7 @@ class VisualOdometry:
         if len(match_prev) >= self.cfg.min_inliers:
             pose_prev = self.estimator.estimate(match_prev.pts_ref, match_prev.pts_cur)
             stats.num_inliers = pose_prev.num_inliers
-            stats.h_score     = pose_prev.H_score # Correct case
+            stats.H_score     = pose_prev.H_score 
 
             if pose_prev.success:
                 # Calculate T_new using frame-to-frame logic (existing scale modes)
@@ -333,10 +333,13 @@ class VisualOdometry:
                     scale = self.cfg.fixed_scale
                 elif use_stereo or len(self.keyframes) >= 5: # Metric mode
                     if pose_kf.success:
+                        # Bug 1 fix: Scale recovery expects T_{cur <- ref} 
+                        # but estimator returns T_{ref <- cur}. Must invert.
+                        T_cur_kf = invert_pose(pose_kf.transform_matrix_ref_from_cur())
                         if cur_depths is not None:
-                            scale = self._recover_scale_stereo(match_kf, cur_depths, pose_kf.R, pose_kf.t)
+                            scale = self._recover_scale_stereo(match_kf, cur_depths, T_cur_kf[:3,:3], T_cur_kf[:3,3])
                         else:
-                            scale = self._recover_scale(kf, match_kf, pose_kf.R, pose_kf.t)
+                            scale = self._recover_scale(kf, match_kf, T_cur_kf[:3,:3], T_cur_kf[:3,3])
                     else:
                         scale = self._prev_scale
                 else: # Monocular Bootstrap mode
@@ -348,9 +351,12 @@ class VisualOdometry:
                 T_rp = np.eye(4)
                 T_rp[:3, :3] = pose_prev.R
                 T_rp[:3,  3] = pose_prev.t.flatten() * scale
+                
+                # Bug 1: Correct accumulation formula per user diagnostic.
+                # Every relative motion from recoverPose must be inverted to chain correctly.
                 current_T_world_cam_candidate = compose_pose(self.T_world_cam, invert_pose(T_rp))
                 tracking_successful_frame_to_frame = True
-                self.last_T_rel = invert_pose(T_rp) # Store inverse of T_rp as T_cur_prev for constant velocity
+                self.last_T_rel = invert_pose(T_rp) # Store inverse for constant velocity prediction
 
         # --- PnP Fallback if Frame-to-Frame Tracking Failed ---
         if not tracking_successful_frame_to_frame and kf is not None and len(kf.map_points) > 0:

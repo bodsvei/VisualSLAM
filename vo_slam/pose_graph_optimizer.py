@@ -252,11 +252,14 @@ class PoseGraphOptimizer:
                 print(f"[PGO] Missing loop vertex {mid}->{qid}")
                 continue
 
-            T_rel = lc["T_rel"]
+            # Bug 3: Convert T_rel to the expected frame convention.
+            # The diagnostic indicates that passing T_rel directly results in an inverted rotation.
+            from .motion import invert_pose
+            T_meas = invert_pose(lc["T_rel"])
             e = self._create_edge(g2o) # Use correct probed edge [Fix 2]
             e.set_vertex(0, v0)
             e.set_vertex(1, v1)
-            e.set_measurement(g2o.SE3Quat(T_rel[:3,:3], T_rel[:3,3]))
+            e.set_measurement(g2o.SE3Quat(T_meas[:3,:3], T_meas[:3,3]))
             e.set_information(lc["information"])
 
             # Robust kernel binding safety wrapper [Fix 6]
@@ -294,6 +297,8 @@ class PoseGraphOptimizer:
                 se3  = v.estimate()
                 R_cw = se3.rotation().matrix()
                 t_cw = se3.translation()
+                
+                # Bug 2 check: T_world_cam = [R_cw.T | -R_cw.T @ t_cw]
                 T = np.eye(4)
                 T[:3,:3] = R_cw.T
                 T[:3, 3] = -R_cw.T @ t_cw
@@ -301,8 +306,10 @@ class PoseGraphOptimizer:
 
             # Update current tracking pose to maintain relative continuity
             new_latest_T = kfs[-1].T_world_cam
-            correction = new_latest_T @ np.linalg.inv(old_latest_T)
-            self.vo.T_world_cam = correction @ self.vo.T_world_cam
+            # Bug 5 fix: Apply correction on the right (local frame)
+            # T_new = T_old @ corr  =>  corr = inv(T_old) @ T_new
+            correction = np.linalg.inv(old_latest_T) @ new_latest_T
+            self.vo.T_world_cam = self.vo.T_world_cam @ correction
 
             self._update_map_and_graph(kfs, old_poses)
 
@@ -393,7 +400,12 @@ class PoseGraphOptimizer:
                 Ti    = unpack(x, i)
                 Tj    = unpack(x, j)
                 T_est = np.linalg.inv(Ti) @ Tj
-                err_R = T_est[:3,:3] - T_ij[:3,:3]
+                
+                # Bug 4: Correct rotation residual using SO(3) logarithmic map
+                dR = T_est[:3,:3].T @ T_ij[:3,:3]
+                rv, _ = cv2.Rodrigues(dR)
+                err_R = rv.flatten()
+                
                 err_t = T_est[:3, 3] - T_ij[:3, 3]
                 total += w * (np.sum(err_R**2) + np.sum(err_t**2))
             return total
@@ -419,9 +431,10 @@ class PoseGraphOptimizer:
 
         # Update current tracking pose to maintain relative continuity
         new_latest_T = kfs[-1].T_world_cam
-        correction = new_latest_T @ np.linalg.inv(old_latest_T)
-        self.vo.T_world_cam = correction @ self.vo.T_world_cam
-
+        # Bug 5 fix: Apply correction on the right (local frame)
+        # T_new = T_old @ corr  =>  corr = inv(T_old) @ T_new
+        correction = np.linalg.inv(old_latest_T) @ new_latest_T
+        self.vo.T_world_cam = self.vo.T_world_cam @ correction
         self._update_map_and_graph(kfs, old_poses)
 
         self.n_optimizations += 1
