@@ -177,3 +177,4 @@ output*.log
 
 # Mac
 .DS_Store
+results_demo.txt

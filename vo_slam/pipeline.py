@@ -11,7 +11,7 @@ import time
 import threading
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple, Dict
 
 from .camera       import CameraModel
 from .features     import (DetectorType, MatcherType,
@@ -174,6 +174,7 @@ class VisualOdometry:
         self._last_features : Optional[FrameFeatures] = None
         self._lost_frames_count : int              = 0
         self._prev_scale    : float                = self.cfg.fixed_scale
+        self.last_T_rel     : np.ndarray           = np.eye(4) # Store last successful relative transform
 
         self.on_new_keyframe: Optional[Callable[[Keyframe], None]] = None
         self.stats_history  : List[FrameStats] = []
@@ -308,77 +309,104 @@ class VisualOdometry:
         match_prev = self.matcher.match(self._last_features, cur_feats)
         stats.num_matched = len(match_prev)
 
-        if len(match_prev) < self.cfg.min_inliers:
-            return self._handle_lost(stats)
-
-        pose_prev = self.estimator.estimate(match_prev.pts_ref, match_prev.pts_cur)
-        stats.num_inliers = pose_prev.num_inliers
-        stats.h_score     = pose_prev.H_score
-
-        if not pose_prev.success:
-            return self._handle_lost(stats)
-
-        # ── 2. Match against last Keyframe for scale/decision ──────── #
+        # ── 2. Match against last Keyframe for scale/decision & PnP ── #
         match_kf = self.matcher.match(kf.features, cur_feats)
         pose_kf  = self.estimator.estimate(match_kf.pts_ref, match_kf.pts_cur)
 
         # ── 3. Tracking Logic Choice ────────────────────────────────── #
         use_stereo = (cur_depths is not None and self.cfg.scale_mode != 'fixed')
 
-        if self.cfg.scale_mode == 'fixed':
-            # Pure fixed-scale frame-to-frame
-            scale = self.cfg.fixed_scale
-            T_rp = np.eye(4)
-            T_rp[:3, :3] = pose_prev.R
-            T_rp[:3,  3] = pose_prev.t.flatten() * scale
-            T_new = compose_pose(self.T_world_cam, invert_pose(T_rp))
+        tracking_successful_frame_to_frame = False
+        tracking_successful_pnp = False
+        current_T_world_cam_candidate = None
+        
+        # --- Attempt Frame-to-Frame Tracking ---
+        if len(match_prev) >= self.cfg.min_inliers:
+            pose_prev = self.estimator.estimate(match_prev.pts_ref, match_prev.pts_cur)
+            stats.num_inliers = pose_prev.num_inliers
+            stats.h_score     = pose_prev.H_score # Correct case
 
-        elif use_stereo or len(self.keyframes) >= 5:
-            # Metric mode (Stereo or mature Monocular)
-            if pose_kf.success:
-                if cur_depths is not None:
-                    # Robust metric scale from current stereo measurements
-                    scale = self._recover_scale_stereo(match_kf, cur_depths, pose_kf.R, pose_kf.t)
-                else:
-                    # Fallback to monocular triangulation scale
-                    scale = self._recover_scale(kf, match_kf, pose_kf.R, pose_kf.t)
-                
-                T_rp = np.eye(4)
-                T_rp[:3, :3] = pose_kf.R
-                T_rp[:3,  3] = pose_kf.t.flatten() * scale
-                T_new = compose_pose(kf.T_world_cam, invert_pose(T_rp))
-            else:
-                # Fallback to frame-to-frame if KF matching fails
-                scale = self._prev_scale
+            if pose_prev.success:
+                # Calculate T_new using frame-to-frame logic (existing scale modes)
+                scale = self.cfg.fixed_scale # Default scale
+                if self.cfg.scale_mode == 'fixed':
+                    scale = self.cfg.fixed_scale
+                elif use_stereo or len(self.keyframes) >= 5: # Metric mode
+                    if pose_kf.success:
+                        if cur_depths is not None:
+                            scale = self._recover_scale_stereo(match_kf, cur_depths, pose_kf.R, pose_kf.t)
+                        else:
+                            scale = self._recover_scale(kf, match_kf, pose_kf.R, pose_kf.t)
+                    else:
+                        scale = self._prev_scale
+                else: # Monocular Bootstrap mode
+                    if pose_kf.success:
+                        scale = self.cfg.fixed_scale
+                    else:
+                        scale = self.cfg.fixed_scale
+
                 T_rp = np.eye(4)
                 T_rp[:3, :3] = pose_prev.R
                 T_rp[:3,  3] = pose_prev.t.flatten() * scale
-                T_new = compose_pose(self.T_world_cam, invert_pose(T_rp))
-        
+                current_T_world_cam_candidate = compose_pose(self.T_world_cam, invert_pose(T_rp))
+                tracking_successful_frame_to_frame = True
+                self.last_T_rel = invert_pose(T_rp) # Store inverse of T_rp as T_cur_prev for constant velocity
+
+        # --- PnP Fallback if Frame-to-Frame Tracking Failed ---
+        if not tracking_successful_frame_to_frame and kf is not None and len(kf.map_points) > 0:
+            if len(match_kf) >= self.cfg.min_inliers:
+                pts3d_pnp = []
+                pts2d_pnp = []
+                for i in range(len(match_kf)):
+                    idx_ref = match_kf.idx_ref[i]
+                    mp = kf.get_map_point_at_feature(idx_ref)
+                    if mp is not None:
+                        pts3d_pnp.append(mp.xyz)
+                        pts2d_pnp.append(match_kf.pts_cur[i])
+
+                if len(pts3d_pnp) >= 6: # Min 6 points for PnP
+                    try:
+                        ok, rvec, tvec, inliers_pnp = cv2.solvePnPRansac(
+                            np.array(pts3d_pnp, dtype=np.float32), 
+                            np.array(pts2d_pnp, dtype=np.float32), 
+                            self.camera.K, None, # No distortion coeffs
+                            iterationsCount=100, 
+                            reprojectionError=2.0, 
+                            confidence=0.99,
+                            flags=cv2.SOLVEPNP_EPNP
+                        )
+
+                        if ok and inliers_pnp is not None and len(inliers_pnp) >= self.cfg.min_inliers // 2:
+                            R_cw, _ = cv2.Rodrigues(rvec)
+                            t_cw = tvec.ravel()
+                            
+                            T_cam_world = np.eye(4)
+                            T_cam_world[:3, :3] = R_cw
+                            T_cam_world[:3, 3] = t_cw
+
+                            current_T_world_cam_candidate = invert_pose(T_cam_world)
+                            stats.num_inliers = len(inliers_pnp)
+                            tracking_successful_pnp = True
+                    except cv2.error:
+                        pass # PnP can fail for various reasons
+
+        # --- Decision and Health Check ---
+        if tracking_successful_frame_to_frame or tracking_successful_pnp:
+            MAX_STEP_M = 50.0
+            step = np.linalg.norm(current_T_world_cam_candidate[:3, 3] - self.T_world_cam[:3, 3])
+            
+            if not np.isfinite(current_T_world_cam_candidate).all() or step > MAX_STEP_M:
+                # Prediction with constant velocity if health check fails
+                self.T_world_cam = compose_pose(self.T_world_cam, self.last_T_rel)
+                return self._handle_lost(stats)
+
+            self.T_world_cam = current_T_world_cam_candidate
+            self._lost_frames_count = 0
+            self.state = VOState.OK # Explicitly set state to OK if tracking recovered
         else:
-            # Monocular Bootstrap mode: KF-relative with fixed scale to get baseline
-            if pose_kf.success:
-                scale = self.cfg.fixed_scale
-                T_rp = np.eye(4)
-                T_rp[:3, :3] = pose_kf.R
-                T_rp[:3,  3] = pose_kf.t.flatten() * (self.frame_id - kf.frame_id) * scale
-                T_new = compose_pose(kf.T_world_cam, invert_pose(T_rp))
-            else:
-                scale = self.cfg.fixed_scale
-                T_rp = np.eye(4)
-                T_rp[:3, :3] = pose_prev.R
-                T_rp[:3,  3] = pose_prev.t.flatten() * scale
-                T_new = compose_pose(self.T_world_cam, invert_pose(T_rp))
-
-        # ── 4. Health Check ─────────────────────────────────────────── #
-        MAX_STEP_M = 50.0
-        step = np.linalg.norm(T_new[:3, 3] - self.T_world_cam[:3, 3])
-        
-        if not np.isfinite(T_new).all() or step > MAX_STEP_M:
+            # If both frame-to-frame and PnP failed, use constant velocity prediction
+            self.T_world_cam = compose_pose(self.T_world_cam, self.last_T_rel)
             return self._handle_lost(stats)
-
-        self.T_world_cam = T_new
-        self._lost_frames_count = 0
 
         # ── 5. Keyframe Decision (Accumulated Motion) ──────────────── #
         T_kf_cur = compose_pose(invert_pose(kf.T_world_cam), self.T_world_cam)
