@@ -134,7 +134,10 @@ def diagnose_from_json(json_path: str):
     print(f"\n── Check 5: Backend Dependencies ─────────────────────────")
     try:
         import g2o
-        print(f"  ✓ g2o available: {g2o.__version__}")
+        try:
+            print(f"  ✓ g2o available")
+        except Exception:
+            print("  ! g2o available but version unknown")
     except ImportError:
         print(f"  ✗ g2o NOT installed — BA and PGO are running in no-op mode")
         print(f"    → Install: pip install g2o-python")

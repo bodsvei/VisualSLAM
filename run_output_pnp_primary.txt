@@ -1,0 +1,32 @@
+[PGO] g2o solver: Eigen SE3
+[BA] Solver: Eigen SE3
+[BA] g2o projection edges unavailable — using scipy joint BA
+[12:03:08] ============================================================
+[12:03:08]   KITTI Visual SLAM — Sequence 00
+[12:03:08]   Started : 2026-06-14 12:03:08
+[12:03:08]   Log     : logs/run_00_20260614_120308.log
+[12:03:08]   JSON    : logs/run_00_20260614_120308.json
+[12:03:08] ============================================================
+[12:03:08] Camera : CameraModel(fx=718.86, fy=718.86, cx=607.19, cy=185.22, 1241×376)
+[12:03:08] K matrix:
+[[718.856    0.     607.1928]
+ [  0.     718.856  185.2157]
+ [  0.       0.       1.    ]]
+[12:03:08] VOConfig: scale_mode=fixed  max_features=2000  min_inliers=20
+[PGO] backend=g2o  edge=SE3Expmap
+[12:03:08] PGO backend: g2o
+[12:03:08] LocalMapper : ON
+[12:03:08] LoopDetector: min_loop_gap=100 frames
+[LocalMapper] g2o available ✓
+[LocalMapper] started
+[LoopDetector] started
+[12:03:08] 
+[12:03:08] Sequence 00: 4541 frames  |  4541 GT poses
+[12:03:08] ───────────────────────────────────────────────────────────────────────────────────────────────
+[12:03:08]  Frame     est_x    est_z      gt_x     gt_z    KFs     MPs  Loops  PGO State        ms
+[12:03:08] ───────────────────────────────────────────────────────────────────────────────────────────────
+[12:03:08]      0      0.00     0.00      0.00    -0.00      1     207      0    0 OK         92.3
+[LocalMapper] BA #1 — local_KFs=2 fixed_KFs=0 MPs=423
+[12:03:12]     50     -3.04    45.79     -2.66    46.60     17    3456      0    0 OK         65.5
+[12:03:18]    100     -6.00    84.06     -4.93    84.31     34    8356      0    0 OK        111.7
+[12:03:24]    150     16.19    89.43     18.16    89.93     51   12515      0    0 OK        137.3

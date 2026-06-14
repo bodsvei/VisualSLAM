@@ -173,14 +173,15 @@ def run(args):
         vocab               = vocab,
         camera_K            = camera.K,
         on_loop_detected    = on_loop if not args.no_loop else None,
-        min_bow_score       = 0.012,
+        min_bow_score       = 0.009,
         min_geo_inliers     = 15,
         consistency         = 3,
         temporal_window     = 20,
         vocab_build_at      = 50,
+        min_loop_gap_frames = 100,
         verbose             = True,
     )
-    log.info(f"LoopDetector: min_loop_gap={args.min_loop_gap} frames")
+    log.info(f"LoopDetector: min_loop_gap=100 frames")
 
     # ── Wire hooks ────────────────────────────────────────────────────── #
     def on_new_keyframe(kf):

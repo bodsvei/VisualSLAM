@@ -42,10 +42,7 @@ class PoseEstimate:
         return T
 
     def transform_matrix(self) -> np.ndarray:
-        """Returns T_{ref←cur}. This is the 'forward' direction for right-multiply point chaining.
-        If your convention requires T_{cur←ref}, call invert_pose() on this result.
-        """
-        return self.transform_matrix_ref_from_cur()
+        raise NotImplementedError("Use transform_matrix_ref_from_cur() and call invert_pose() before composing world poses.")
 
 
 class MotionEstimator:

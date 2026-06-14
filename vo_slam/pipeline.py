@@ -320,8 +320,52 @@ class VisualOdometry:
         tracking_successful_pnp = False
         current_T_world_cam_candidate = None
         
-        # --- Attempt Frame-to-Frame Tracking ---
-        if len(match_prev) >= self.cfg.min_inliers:
+        # --- Attempt PnP Tracking First (Primary Tracking) ---
+        if kf is not None and len(kf.map_points) > 0 and len(match_kf) >= self.cfg.min_inliers:
+            pts3d_pnp = []
+            pts2d_pnp = []
+            for i in range(len(match_kf)):
+                idx_ref = match_kf.idx_ref[i]
+                mp = kf.get_map_point_at_feature(idx_ref)
+                if mp is not None:
+                    pts3d_pnp.append(mp.xyz)
+                    pts2d_pnp.append(match_kf.pts_cur[i])
+
+            if len(pts3d_pnp) >= 10: # Require at least 10 points to trust PnP for tracking
+                try:
+                    ok, rvec, tvec, inliers_pnp = cv2.solvePnPRansac(
+                        np.array(pts3d_pnp, dtype=np.float32), 
+                        np.array(pts2d_pnp, dtype=np.float32), 
+                        self.camera.K, None, # No distortion coeffs
+                        iterationsCount=300, 
+                        reprojectionError=4.0, 
+                        confidence=0.99,
+                        flags=cv2.SOLVEPNP_EPNP
+                    )
+
+                    if ok and inliers_pnp is not None and len(inliers_pnp) >= max(10, self.cfg.min_inliers // 2):
+                        R_cw, _ = cv2.Rodrigues(rvec)
+                        t_cw = tvec.ravel()
+                        
+                        T_cam_world = np.eye(4)
+                        T_cam_world[:3, :3] = R_cw
+                        T_cam_world[:3, 3] = t_cw
+
+                        current_T_world_cam_candidate = invert_pose(T_cam_world)
+                        stats.num_inliers = len(inliers_pnp)
+                        tracking_successful_pnp = True
+                        if self._lost_frames_count == 0:
+                            # Just log occasionally to avoid flooding
+                            if stats.frame_id % 50 == 0:
+                                print(f"  [Tracking] Frame {stats.frame_id}: PnP tracking successful with {len(inliers_pnp)} inliers")
+                        
+                        # Store relative for constant velocity prediction
+                        self.last_T_rel = invert_pose(self.T_world_cam) @ current_T_world_cam_candidate
+                except cv2.error:
+                    pass # PnP can fail for various reasons
+
+        # --- Fallback to Frame-to-Frame Tracking ---
+        if not tracking_successful_pnp and len(match_prev) >= self.cfg.min_inliers:
             pose_prev = self.estimator.estimate(match_prev.pts_ref, match_prev.pts_cur)
             stats.num_inliers = pose_prev.num_inliers
             stats.H_score     = pose_prev.H_score 
@@ -352,49 +396,11 @@ class VisualOdometry:
                 T_rp[:3, :3] = pose_prev.R
                 T_rp[:3,  3] = pose_prev.t.flatten() * scale
                 
-                # Bug 1: Correct accumulation formula per user diagnostic.
-                # Every relative motion from recoverPose must be inverted to chain correctly.
+                # Bug 1: Correct accumulation formula.
+                # T_rp from cv2.recoverPose is T_{cur <- ref}. Must invert to get T_{ref <- cur}.
                 current_T_world_cam_candidate = compose_pose(self.T_world_cam, invert_pose(T_rp))
                 tracking_successful_frame_to_frame = True
-                self.last_T_rel = invert_pose(T_rp) # Store inverse for constant velocity prediction
-
-        # --- PnP Fallback if Frame-to-Frame Tracking Failed ---
-        if not tracking_successful_frame_to_frame and kf is not None and len(kf.map_points) > 0:
-            if len(match_kf) >= self.cfg.min_inliers:
-                pts3d_pnp = []
-                pts2d_pnp = []
-                for i in range(len(match_kf)):
-                    idx_ref = match_kf.idx_ref[i]
-                    mp = kf.get_map_point_at_feature(idx_ref)
-                    if mp is not None:
-                        pts3d_pnp.append(mp.xyz)
-                        pts2d_pnp.append(match_kf.pts_cur[i])
-
-                if len(pts3d_pnp) >= 6: # Min 6 points for PnP
-                    try:
-                        ok, rvec, tvec, inliers_pnp = cv2.solvePnPRansac(
-                            np.array(pts3d_pnp, dtype=np.float32), 
-                            np.array(pts2d_pnp, dtype=np.float32), 
-                            self.camera.K, None, # No distortion coeffs
-                            iterationsCount=100, 
-                            reprojectionError=2.0, 
-                            confidence=0.99,
-                            flags=cv2.SOLVEPNP_EPNP
-                        )
-
-                        if ok and inliers_pnp is not None and len(inliers_pnp) >= self.cfg.min_inliers // 2:
-                            R_cw, _ = cv2.Rodrigues(rvec)
-                            t_cw = tvec.ravel()
-                            
-                            T_cam_world = np.eye(4)
-                            T_cam_world[:3, :3] = R_cw
-                            T_cam_world[:3, 3] = t_cw
-
-                            current_T_world_cam_candidate = invert_pose(T_cam_world)
-                            stats.num_inliers = len(inliers_pnp)
-                            tracking_successful_pnp = True
-                    except cv2.error:
-                        pass # PnP can fail for various reasons
+                self.last_T_rel = invert_pose(T_rp) # Store relative for constant velocity prediction
 
         # --- Decision and Health Check ---
         if tracking_successful_frame_to_frame or tracking_successful_pnp:
@@ -617,7 +623,22 @@ class VisualOdometry:
 
         valid = (depths_cur_unscaled > 0.1) & (np.array(depths_ref) > 0.1)
         if np.sum(valid) < 5:
-            return self.cfg.fixed_scale
+            return 1.0
 
         ratios = np.array(depths_ref)[valid] / depths_cur_unscaled[valid]
-        return float(np.clip(np.median(ratios), self.cfg.scale_clamp_min, self.cfg.scale_clamp_max))
+        ratios = ratios[np.isfinite(ratios)]
+        
+        if len(ratios) < 5:
+            return 1.0
+            
+        q1, q3 = np.percentile(ratios, [25, 75])
+        iqr = q3 - q1
+        lower = q1 - 1.5 * iqr
+        upper = q3 + 1.5 * iqr
+        
+        filtered = ratios[(ratios >= lower) & (ratios <= upper)]
+        
+        if len(filtered) == 0:
+            return 1.0
+
+        return float(np.clip(np.median(filtered), self.cfg.scale_clamp_min, self.cfg.scale_clamp_max))

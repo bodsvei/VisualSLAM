@@ -123,12 +123,12 @@ class LoopDetector:
         vocab             : Optional[VisualVocabulary],
         camera_K          : np.ndarray,
         on_loop_detected  : Optional[Callable[[LoopEvent], None]] = None,
-        min_bow_score     : float = 0.012,
-        min_geo_inliers   : int   = 25,
+        min_bow_score     : float = 0.009,  # Changed from 0.012 to accept marginal matches
+        min_geo_inliers   : int   = 15,
         consistency       : int   = 3,
         temporal_window   : int   = 20,
         vocab_build_at    : int   = 50,     # build vocab after this many KFs
-        min_loop_gap_frames: int  = 100,    # suppress for N frames after loop
+        min_loop_gap_frames: int  = 100,    # Changed from 200 to 100 to allow revisits
         verbose           : bool  = True,
     ):
         self.vocab            = vocab
@@ -233,6 +233,7 @@ class LoopDetector:
             kf_id       = kf.kf_id,
             descriptors = descs,
             covis_ids   = covis_ids,
+            frame_id    = kf.frame_id,
         )
 
         if candidate is None:

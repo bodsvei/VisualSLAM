@@ -1,0 +1,47 @@
+[PGO] g2o solver: Eigen SE3
+[BA] Solver: Eigen SE3
+[BA] g2o projection edges unavailable — using scipy joint BA
+[00:44:34] ============================================================
+[00:44:34]   KITTI Visual SLAM — Sequence 00
+[00:44:34]   Started : 2026-06-14 00:44:34
+[00:44:34]   Log     : logs/run_00_20260614_004434.log
+[00:44:34]   JSON    : logs/run_00_20260614_004434.json
+[00:44:34] ============================================================
+[00:44:34] Camera : CameraModel(fx=718.86, fy=718.86, cx=607.19, cy=185.22, 1241×376)
+[00:44:34] K matrix:
+[[718.856    0.     607.1928]
+ [  0.     718.856  185.2157]
+ [  0.       0.       1.    ]]
+[00:44:34] VOConfig: scale_mode=median_depth  max_features=2000  min_inliers=20
+[PGO] backend=g2o  edge=SE3Expmap
+[00:44:34] PGO backend: g2o
+[00:44:34] LocalMapper : ON
+[00:44:34] LoopDetector: min_loop_gap=200 frames
+[LocalMapper] g2o available ✓
+[LocalMapper] started
+[LoopDetector] started
+[00:44:34] 
+[00:44:34] Sequence 00: 4541 frames  |  4541 GT poses
+[00:44:34] ───────────────────────────────────────────────────────────────────────────────────────────────
+[00:44:34]  Frame     est_x    est_z      gt_x     gt_z    KFs     MPs  Loops  PGO State        ms
+[00:44:34] ───────────────────────────────────────────────────────────────────────────────────────────────
+[00:44:34]      0      0.00     0.00      0.00    -0.00      1     207      0    0 OK         87.0
+[LocalMapper] BA #1 — local_KFs=2 fixed_KFs=0 MPs=422
+[00:44:38]     50      8.90   191.92     -2.66    46.60     17    3434      0    0 OK         50.7
+[00:44:42]    100     40.83   418.98     -4.93    84.31     34    8406      0    0 OK         94.2
+[00:44:46]    150   1917.15  -496.22     18.16    89.93     46   11217      0    0 OK         49.7
+
+[LoopDetector] Building vocabulary from 50 keyframes...
+[VocabBuilder] 48160 descriptors from 50 KFs
+[00:44:49]    200   1963.20 -1039.17     53.43    89.75     62   14339      0    0 OK         95.3
+[Vocab] Building vocabulary: 1000 words from 48160 descriptors...
+[00:44:57]    250   2655.64 -1143.50     63.16   117.19     78   18216      0    0 OK        208.2
+[00:45:06]    300   2790.93 -1061.56     71.43   157.96     94   23253      0    0 OK         93.8
+[00:45:13]    350   2870.39  -980.49     70.50   199.32    111   27636      0    0 OK        111.1
+[BA] scipy joint — obs=369 KFs=1 MPs=422 converged=False
+[LocalMapper] BA #2 — local_KFs=2 fixed_KFs=1 MPs=572
+[00:45:21]    400   3001.45  -850.80     69.84   233.04    128   13897      0    0 OK        234.5
+[00:45:28]    450   1850.75   175.79     52.65   244.60    141   17220      0    0 OK        246.5
+[00:45:35]    500   1686.63   135.44     11.01   242.30    157   19964      0    0 OK         95.4
+[00:45:51]    550   1653.85   125.83     -6.44   241.47    173   24101      0    0 OK        584.9
+[00:46:03]    600   1234.23  1222.04    -14.18   251.41    186   26828      0    0 OK        110.1

@@ -106,6 +106,7 @@ class PlaceRecognizer:
         kf_id       : int,
         descriptors : np.ndarray,
         covis_ids   : Optional[Set[int]] = None,   # co-visible neighbor KF ids
+        frame_id    : Optional[int] = None,        # For debugging
     ) -> Optional[LoopCandidate]:
         """
         Query the database for loop candidates.
@@ -132,30 +133,31 @@ class PlaceRecognizer:
 
         # ── 3. Query database ─────────────────────────────────────────── #
         raw_results = self.db.query(bow, max_results=10, exclude_ids=exclude)
-        if not raw_results:
-            self._update_consistency(set())
-            return None
-
+        
         # ── 4. Score threshold filter ─────────────────────────────────── #
         # Baseline: use best score of recent KF against DB as reference
         baseline  = self._compute_baseline_score(bow, exclude)
-        threshold = max(self.min_score, 0.75 * baseline)
+        # BUG-4 Debugging: lowered threshold from 0.75 to 0.60
+        threshold = max(self.min_score, 0.60 * baseline)
 
         candidates = [r for r in raw_results if r.score >= threshold]
-        if not candidates:
-            self._update_consistency(set())
-            return None
-
+        
         # ── 5. Group by co-visible keyframes ──────────────────────────── #
         # Candidates that are co-visible to each other → pick best group
-        best = candidates[0]   # sorted by score desc
-
+        if candidates:
+            best = candidates[0]   # sorted by score desc
+        
         # ── 6. Temporal consistency check ─────────────────────────────── #
         current_candidate_ids = {r.kf_id for r in candidates}
         consistent_id         = self._update_consistency(current_candidate_ids)
 
-        if consistent_id is None:
-            self.n_candidates += 1
+        if frame_id is not None and frame_id > 3500:
+            accepted_count = 1 if consistent_id is not None else 0
+            print(f"[LoopDetector] frame={frame_id} candidates={len(candidates)} accepted={accepted_count}")
+
+        if not raw_results or not candidates or consistent_id is None:
+            if consistent_id is None and candidates:
+                self.n_candidates += 1
             return None   # not yet consistent
 
         # ── 7. Verified loop candidate ───────────────────────────────── #

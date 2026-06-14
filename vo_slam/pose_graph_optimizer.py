@@ -306,10 +306,8 @@ class PoseGraphOptimizer:
 
             # Update current tracking pose to maintain relative continuity
             new_latest_T = kfs[-1].T_world_cam
-            # Bug 5 fix: Apply correction on the right (local frame)
-            # T_new = T_old @ corr  =>  corr = inv(T_old) @ T_new
-            correction = np.linalg.inv(old_latest_T) @ new_latest_T
-            self.vo.T_world_cam = self.vo.T_world_cam @ correction
+            correction = new_latest_T @ np.linalg.inv(old_latest_T)
+            self.vo.T_world_cam = correction @ self.vo.T_world_cam
 
             self._update_map_and_graph(kfs, old_poses)
 
@@ -395,17 +393,16 @@ class PoseGraphOptimizer:
             return PGOResult(False, n, 0, 0)
 
         def cost(x):
+            from scipy.spatial.transform import Rotation
             total = 0.0
             for (i, j, T_ij, w) in odom + loops:
                 Ti    = unpack(x, i)
                 Tj    = unpack(x, j)
                 T_est = np.linalg.inv(Ti) @ Tj
-                
+
                 # Bug 4: Correct rotation residual using SO(3) logarithmic map
-                dR = T_est[:3,:3].T @ T_ij[:3,:3]
-                rv, _ = cv2.Rodrigues(dR)
-                err_R = rv.flatten()
-                
+                err_R = Rotation.from_matrix(T_est[:3,:3].T @ T_ij[:3,:3]).as_rotvec()
+
                 err_t = T_est[:3, 3] - T_ij[:3, 3]
                 total += w * (np.sum(err_R**2) + np.sum(err_t**2))
             return total
@@ -431,10 +428,8 @@ class PoseGraphOptimizer:
 
         # Update current tracking pose to maintain relative continuity
         new_latest_T = kfs[-1].T_world_cam
-        # Bug 5 fix: Apply correction on the right (local frame)
-        # T_new = T_old @ corr  =>  corr = inv(T_old) @ T_new
-        correction = np.linalg.inv(old_latest_T) @ new_latest_T
-        self.vo.T_world_cam = self.vo.T_world_cam @ correction
+        correction = new_latest_T @ np.linalg.inv(old_latest_T)
+        self.vo.T_world_cam = correction @ self.vo.T_world_cam
         self._update_map_and_graph(kfs, old_poses)
 
         self.n_optimizations += 1

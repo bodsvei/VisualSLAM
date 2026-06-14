@@ -1,0 +1,1008 @@
+[PGO] g2o solver: Eigen SE3
+[BA] Solver: Eigen SE3
+[BA] g2o projection edges unavailable — using scipy joint BA
+[00:54:05] ============================================================
+[00:54:05]   KITTI Visual SLAM — Sequence 00
+[00:54:05]   Started : 2026-06-14 00:54:05
+[00:54:05]   Log     : logs/run_00_20260614_005405.log
+[00:54:05]   JSON    : logs/run_00_20260614_005405.json
+[00:54:05] ============================================================
+[00:54:05] Camera : CameraModel(fx=718.86, fy=718.86, cx=607.19, cy=185.22, 1241×376)
+[00:54:05] K matrix:
+[[718.856    0.     607.1928]
+ [  0.     718.856  185.2157]
+ [  0.       0.       1.    ]]
+[00:54:05] VOConfig: scale_mode=fixed  max_features=2000  min_inliers=20
+[PGO] backend=g2o  edge=SE3Expmap
+[00:54:05] PGO backend: g2o
+[00:54:05] LocalMapper : ON
+[00:54:05] LoopDetector: min_loop_gap=100 frames
+[LocalMapper] g2o available ✓
+[LocalMapper] started
+[LoopDetector] started
+[00:54:05] 
+[00:54:05] Sequence 00: 4541 frames  |  4541 GT poses
+[00:54:05] ───────────────────────────────────────────────────────────────────────────────────────────────
+[00:54:05]  Frame     est_x    est_z      gt_x     gt_z    KFs     MPs  Loops  PGO State        ms
+[00:54:05] ───────────────────────────────────────────────────────────────────────────────────────────────
+[00:54:05]      0      0.00     0.00      0.00    -0.00      1     207      0    0 OK         81.6
+[LocalMapper] BA #1 — local_KFs=2 fixed_KFs=0 MPs=422
+[00:54:08]     50      0.81    47.89     -2.66    46.60     17    3455      0    0 OK         48.8
+[00:54:12]    100      6.85    96.70     -4.93    84.31     34    8383      0    0 OK         56.2
+[00:54:16]    150     52.87   102.70     18.16    89.93     51   12579      0    0 OK        117.0
+
+[LoopDetector] Building vocabulary from 50 keyframes...
+[VocabBuilder] 48803 descriptors from 50 KFs
+[Vocab] Building vocabulary: 1000 words from 48803 descriptors...
+[00:54:22]    200    100.70    92.60     53.43    89.75     67   15659      0    0 OK        148.9
+[00:54:30]    250    127.62   132.77     63.16   117.19     84   19780      0    0 OK        125.3
+[BA] scipy joint — obs=310 KFs=1 MPs=422 converged=False
+[LocalMapper] BA #2 — local_KFs=2 fixed_KFs=1 MPs=515
+[00:54:39]    300    148.96   177.77     71.43   157.96    101   10029      0    0 OK        202.4
+[00:54:47]    350    160.04   226.37     70.50   199.32    117   14023      0    0 OK        101.8
+[00:54:54]    400    170.91   275.02     69.84   233.04    134   18421      0    0 OK        125.1
+[00:55:02]    450    143.28   306.62     52.65   244.60    151   22802      0    0 OK        220.3
+[00:55:09]    500     95.48   312.95     11.01   242.30    167   25570      0    0 OK        108.4
+[00:55:24]    550     65.33   317.12     -6.44   241.47    183   29720      0    0 OK        400.4
+[Vocab] Built. Inertia=3802307584.0
+[LoopDetector] Vocabulary ready in 77.6s  (1000 words)
+  [LoopDetector] BoW candidate: KF53 ↔ KF3  score=0.3987  hits=3
+  [LoopDetector] BoW candidate: KF54 ↔ KF2  score=0.4122  hits=4
+  [LoopDetector] BoW candidate: KF55 ↔ KF6  score=0.4113  hits=5
+  [LoopDetector] BoW candidate: KF56 ↔ KF6  score=0.4271  hits=6
+[00:55:34]    600     47.37   339.95    -14.18   251.41    199   33294      0    0 OK         75.2
+  [LoopDetector] BoW candidate: KF57 ↔ KF33  score=0.3994  hits=5
+  [LoopDetector] BoW candidate: KF58 ↔ KF33  score=0.4546  hits=6
+  [LoopDetector] BoW candidate: KF59 ↔ KF35  score=0.4177  hits=5
+  [LoopDetector] BoW candidate: KF60 ↔ KF35  score=0.4137  hits=6
+  [LoopDetector] BoW candidate: KF61 ↔ KF1  score=0.4043  hits=6
+  [LoopDetector] BoW candidate: KF62 ↔ KF1  score=0.3782  hits=7
+  [LoopDetector] BoW candidate: KF63 ↔ KF1  score=0.4066  hits=8
+  [LoopDetector] BoW candidate: KF64 ↔ KF1  score=0.4161  hits=9
+  [LoopDetector] BoW candidate: KF65 ↔ KF38  score=0.4235  hits=8
+  [LoopDetector] BoW candidate: KF66 ↔ KF38  score=0.4249  hits=9
+  [LoopDetector] BoW candidate: KF67 ↔ KF38  score=0.4279  hits=10
+  [LoopDetector] BoW candidate: KF68 ↔ KF38  score=0.4354  hits=11
+  [LoopDetector] BoW candidate: KF69 ↔ KF38  score=0.4454  hits=12
+  [LoopDetector] BoW candidate: KF71 ↔ KF2  score=0.4043  hits=3
+  [LoopDetector] BoW candidate: KF72 ↔ KF2  score=0.4127  hits=4
+  [LoopDetector] BoW candidate: KF73 ↔ KF2  score=0.3997  hits=5
+  [LoopDetector] BoW candidate: KF74 ↔ KF2  score=0.3986  hits=6
+  [LoopDetector] BoW candidate: KF75 ↔ KF3  score=0.4089  hits=7
+  [LoopDetector] BoW candidate: KF76 ↔ KF3  score=0.4216  hits=8
+  [LoopDetector] BoW candidate: KF77 ↔ KF3  score=0.4142  hits=9
+  [LoopDetector] BoW candidate: KF78 ↔ KF42  score=0.4032  hits=3
+  [LoopDetector] BoW candidate: KF79 ↔ KF2  score=0.3964  hits=3
+  [LoopDetector] BoW candidate: KF80 ↔ KF2  score=0.4028  hits=4
+  [LoopDetector] BoW candidate: KF81 ↔ KF2  score=0.4062  hits=5
+  [LoopDetector] BoW candidate: KF82 ↔ KF2  score=0.4049  hits=6
+  [LoopDetector] BoW candidate: KF83 ↔ KF2  score=0.3924  hits=7
+  [LoopDetector] BoW candidate: KF84 ↔ KF2  score=0.3946  hits=8
+  [LoopDetector] BoW candidate: KF85 ↔ KF3  score=0.3912  hits=7
+  [LoopDetector] BoW candidate: KF86 ↔ KF3  score=0.3796  hits=8
+  [LoopDetector] BoW candidate: KF87 ↔ KF3  score=0.3999  hits=9
+  [LoopDetector] BoW candidate: KF88 ↔ KF3  score=0.4049  hits=10
+  [LoopDetector] BoW candidate: KF89 ↔ KF3  score=0.4000  hits=11
+  [LoopDetector] BoW candidate: KF90 ↔ KF3  score=0.4131  hits=12
+  [LoopDetector] BoW candidate: KF91 ↔ KF58  score=0.4297  hits=4
+  [LoopDetector] BoW candidate: KF92 ↔ KF58  score=0.4108  hits=5
+  [LoopDetector] BoW candidate: KF93 ↔ KF58  score=0.4466  hits=6
+  [LoopDetector] BoW candidate: KF94 ↔ KF58  score=0.4676  hits=7
+  [LoopDetector] BoW candidate: KF95 ↔ KF58  score=0.4691  hits=8
+  [LoopDetector] BoW candidate: KF96 ↔ KF58  score=0.4394  hits=9
+  [LoopDetector] BoW candidate: KF97 ↔ KF70  score=0.4549  hits=5
+  [LoopDetector] BoW candidate: KF98 ↔ KF70  score=0.4327  hits=6
+  [LoopDetector] BoW candidate: KF99 ↔ KF70  score=0.4346  hits=7
+  [LoopDetector] BoW candidate: KF100 ↔ KF70  score=0.4272  hits=8
+[00:55:38]    650     53.03   388.58    -15.99   298.14    215   36955      0    0 OK         65.1
+  [LoopDetector] BoW candidate: KF101 ↔ KF70  score=0.4143  hits=9
+  [LoopDetector] BoW candidate: KF102 ↔ KF70  score=0.4235  hits=10
+  [LoopDetector] BoW candidate: KF103 ↔ KF75  score=0.4197  hits=9
+  [LoopDetector] BoW candidate: KF104 ↔ KF75  score=0.3991  hits=10
+  [LoopDetector] BoW candidate: KF105 ↔ KF75  score=0.4036  hits=11
+  [LoopDetector] BoW candidate: KF106 ↔ KF75  score=0.4245  hits=12
+  [LoopDetector] BoW candidate: KF107 ↔ KF75  score=0.4011  hits=13
+  [LoopDetector] BoW candidate: KF108 ↔ KF75  score=0.4219  hits=14
+  [LoopDetector] BoW candidate: KF109 ↔ KF75  score=0.4144  hits=15
+  [LoopDetector] BoW candidate: KF110 ↔ KF75  score=0.4214  hits=16
+  [LoopDetector] BoW candidate: KF111 ↔ KF75  score=0.4053  hits=17
+  [LoopDetector] BoW candidate: KF112 ↔ KF75  score=0.4194  hits=18
+  [LoopDetector] BoW candidate: KF113 ↔ KF64  score=0.4114  hits=5
+  [LoopDetector] BoW candidate: KF114 ↔ KF77  score=0.4378  hits=4
+  [LoopDetector] BoW candidate: KF115 ↔ KF77  score=0.4256  hits=5
+  [LoopDetector] BoW candidate: KF116 ↔ KF77  score=0.4606  hits=6
+  [LoopDetector] BoW candidate: KF117 ↔ KF77  score=0.4474  hits=7
+  [LoopDetector] BoW candidate: KF118 ↔ KF72  score=0.3782  hits=5
+  [LoopDetector] BoW candidate: KF119 ↔ KF72  score=0.4174  hits=6
+  [LoopDetector] BoW candidate: KF120 ↔ KF72  score=0.4497  hits=7
+  [LoopDetector] BoW candidate: KF121 ↔ KF82  score=0.4303  hits=5
+  [LoopDetector] BoW candidate: KF122 ↔ KF82  score=0.4097  hits=6
+  [LoopDetector] BoW candidate: KF123 ↔ KF77  score=0.4249  hits=5
+  [LoopDetector] BoW candidate: KF124 ↔ KF77  score=0.4362  hits=6
+  [LoopDetector] BoW candidate: KF125 ↔ KF97  score=0.4260  hits=4
+  [LoopDetector] BoW candidate: KF126 ↔ KF97  score=0.4280  hits=5
+  [LoopDetector] BoW candidate: KF127 ↔ KF96  score=0.4286  hits=4
+  [LoopDetector] BoW candidate: KF128 ↔ KF94  score=0.4245  hits=5
+  [LoopDetector] BoW candidate: KF129 ↔ KF94  score=0.4209  hits=6
+  [LoopDetector] BoW candidate: KF130 ↔ KF94  score=0.4322  hits=7
+  [LoopDetector] BoW candidate: KF131 ↔ KF94  score=0.4375  hits=8
+  [LoopDetector] BoW candidate: KF132 ↔ KF77  score=0.4347  hits=3
+  [LoopDetector] BoW candidate: KF133 ↔ KF77  score=0.4212  hits=4
+  [LoopDetector] BoW candidate: KF134 ↔ KF77  score=0.4206  hits=5
+  [LoopDetector] BoW candidate: KF135 ↔ KF77  score=0.3981  hits=6
+  [LoopDetector] BoW candidate: KF136 ↔ KF97  score=0.4278  hits=6
+  [LoopDetector] BoW candidate: KF137 ↔ KF97  score=0.4336  hits=7
+  [LoopDetector] BoW candidate: KF138 ↔ KF100  score=0.4341  hits=8
+  [LoopDetector] BoW candidate: KF139 ↔ KF100  score=0.4421  hits=9
+  [LoopDetector] BoW candidate: KF140 ↔ KF95  score=0.4402  hits=3
+  [LoopDetector] BoW candidate: KF141 ↔ KF95  score=0.4406  hits=4
+  [LoopDetector] BoW candidate: KF142 ↔ KF95  score=0.4312  hits=5
+  [LoopDetector] BoW candidate: KF143 ↔ KF69  score=0.4094  hits=4
+  [LoopDetector] BoW candidate: KF144 ↔ KF69  score=0.4097  hits=5
+  [LoopDetector] BoW candidate: KF145 ↔ KF69  score=0.4044  hits=6
+  [LoopDetector] BoW candidate: KF146 ↔ KF68  score=0.4238  hits=4
+  [LoopDetector] BoW candidate: KF147 ↔ KF55  score=0.4231  hits=5
+  [LoopDetector] BoW candidate: KF148 ↔ KF94  score=0.4019  hits=3
+  [LoopDetector] BoW candidate: KF149 ↔ KF94  score=0.4219  hits=4
+  [LoopDetector] BoW candidate: KF150 ↔ KF94  score=0.4283  hits=5
+  [LoopDetector] BoW candidate: KF151 ↔ KF94  score=0.3826  hits=6
+[00:55:42]    700     58.03   438.03    -18.69   350.00    232   40877      0    0 OK         64.2
+  [LoopDetector] BoW candidate: KF152 ↔ KF82  score=0.4029  hits=3
+  [LoopDetector] BoW candidate: KF153 ↔ KF82  score=0.4181  hits=4
+  [LoopDetector] BoW candidate: KF155 ↔ KF77  score=0.4132  hits=3
+  [LoopDetector] BoW candidate: KF157 ↔ KF129  score=0.4336  hits=3
+  [LoopDetector] BoW candidate: KF158 ↔ KF69  score=0.4418  hits=4
+  [LoopDetector] BoW candidate: KF159 ↔ KF69  score=0.4281  hits=5
+  [LoopDetector] BoW candidate: KF160 ↔ KF94  score=0.4190  hits=6
+  [LoopDetector] BoW candidate: KF161 ↔ KF94  score=0.4036  hits=7
+  [LoopDetector] BoW candidate: KF162 ↔ KF94  score=0.4239  hits=8
+  [LoopDetector] BoW candidate: KF163 ↔ KF94  score=0.4377  hits=9
+  [LoopDetector] BoW candidate: KF164 ↔ KF94  score=0.4167  hits=10
+  [LoopDetector] BoW candidate: KF165 ↔ KF94  score=0.4268  hits=11
+  [LoopDetector] BoW candidate: KF166 ↔ KF94  score=0.4224  hits=12
+  [LoopDetector] BoW candidate: KF167 ↔ KF94  score=0.4063  hits=13
+  [LoopDetector] BoW candidate: KF168 ↔ KF94  score=0.4512  hits=14
+  [LoopDetector] BoW candidate: KF169 ↔ KF94  score=0.4480  hits=15
+  [LoopDetector] BoW candidate: KF170 ↔ KF94  score=0.4574  hits=16
+  [LoopDetector] BoW candidate: KF171 ↔ KF94  score=0.4611  hits=17
+  [LoopDetector] BoW candidate: KF172 ↔ KF94  score=0.4654  hits=18
+  [LoopDetector] BoW candidate: KF173 ↔ KF94  score=0.4491  hits=19
+  [LoopDetector] BoW candidate: KF174 ↔ KF94  score=0.4635  hits=20
+  [LoopDetector] BoW candidate: KF175 ↔ KF94  score=0.4516  hits=21
+  [LoopDetector] BoW candidate: KF176 ↔ KF94  score=0.4407  hits=22
+  [LoopDetector] BoW candidate: KF177 ↔ KF94  score=0.4631  hits=23
+  [LoopDetector] BoW candidate: KF178 ↔ KF94  score=0.4477  hits=24
+  [LoopDetector] BoW candidate: KF179 ↔ KF94  score=0.4354  hits=25
+  [LoopDetector] BoW candidate: KF180 ↔ KF94  score=0.4530  hits=26
+  [LoopDetector] BoW candidate: KF181 ↔ KF94  score=0.4419  hits=27
+  [LoopDetector] BoW candidate: KF182 ↔ KF94  score=0.4329  hits=28
+  [LoopDetector] BoW candidate: KF183 ↔ KF94  score=0.4449  hits=29
+  [LoopDetector] BoW candidate: KF184 ↔ KF94  score=0.4375  hits=30
+  [LoopDetector] BoW candidate: KF185 ↔ KF94  score=0.4474  hits=31
+  [LoopDetector] BoW candidate: KF186 ↔ KF94  score=0.4487  hits=32
+  [LoopDetector] BoW candidate: KF187 ↔ KF94  score=0.4567  hits=33
+  [LoopDetector] BoW candidate: KF188 ↔ KF94  score=0.4522  hits=34
+  [LoopDetector] BoW candidate: KF189 ↔ KF94  score=0.4628  hits=35
+  [LoopDetector] BoW candidate: KF190 ↔ KF94  score=0.4757  hits=36
+  [LoopDetector] BoW candidate: KF191 ↔ KF94  score=0.4721  hits=37
+  [LoopDetector] BoW candidate: KF192 ↔ KF94  score=0.4603  hits=38
+  [LoopDetector] BoW candidate: KF193 ↔ KF94  score=0.4793  hits=39
+  [LoopDetector] BoW candidate: KF194 ↔ KF94  score=0.4472  hits=40
+  [LoopDetector] BoW candidate: KF195 ↔ KF94  score=0.4533  hits=41
+  [LoopDetector] BoW candidate: KF196 ↔ KF171  score=0.4385  hits=6
+  [LoopDetector] BoW candidate: KF197 ↔ KF171  score=0.4261  hits=7
+  [LoopDetector] BoW candidate: KF198 ↔ KF171  score=0.4269  hits=8
+  [LoopDetector] BoW candidate: KF200 ↔ KF166  score=0.4100  hits=3
+  [LoopDetector] BoW candidate: KF201 ↔ KF166  score=0.4067  hits=4
+[00:55:48]    750     45.94   480.65    -26.85   375.10    249   46541      0    0 OK         90.4
+  [LoopDetector] BoW candidate: KF202 ↔ KF112  score=0.4113  hits=3
+  [LoopDetector] BoW candidate: KF204 ↔ KF168  score=0.4270  hits=3
+  [LoopDetector] BoW candidate: KF205 ↔ KF168  score=0.4300  hits=4
+  [LoopDetector] BoW candidate: KF206 ↔ KF168  score=0.4254  hits=5
+  [LoopDetector] BoW candidate: KF207 ↔ KF172  score=0.4385  hits=3
+  [LoopDetector] BoW candidate: KF208 ↔ KF172  score=0.4427  hits=4
+  [LoopDetector] BoW candidate: KF209 ↔ KF172  score=0.4457  hits=5
+  [LoopDetector] BoW candidate: KF210 ↔ KF172  score=0.4182  hits=6
+  [LoopDetector] BoW candidate: KF211 ↔ KF170  score=0.4526  hits=3
+  [LoopDetector] BoW candidate: KF212 ↔ KF170  score=0.4380  hits=4
+  [LoopDetector] BoW candidate: KF213 ↔ KF170  score=0.4329  hits=5
+  [LoopDetector] BoW candidate: KF214 ↔ KF170  score=0.4593  hits=6
+  [LoopDetector] BoW candidate: KF215 ↔ KF170  score=0.4380  hits=7
+  [LoopDetector] BoW candidate: KF216 ↔ KF170  score=0.4423  hits=8
+  [LoopDetector] BoW candidate: KF217 ↔ KF193  score=0.4246  hits=5
+  [LoopDetector] BoW candidate: KF219 ↔ KF192  score=0.4537  hits=3
+  [LoopDetector] BoW candidate: KF220 ↔ KF192  score=0.4412  hits=4
+  [LoopDetector] BoW candidate: KF221 ↔ KF192  score=0.4311  hits=5
+  [LoopDetector] BoW candidate: KF222 ↔ KF170  score=0.4525  hits=4
+  [LoopDetector] BoW candidate: KF223 ↔ KF94  score=0.4383  hits=3
+  [LoopDetector] BoW candidate: KF224 ↔ KF94  score=0.4402  hits=4
+  [LoopDetector] BoW candidate: KF225 ↔ KF192  score=0.4512  hits=3
+  [LoopDetector] BoW candidate: KF226 ↔ KF192  score=0.4314  hits=4
+  [LoopDetector] BoW candidate: KF227 ↔ KF192  score=0.4512  hits=5
+  [LoopDetector] BoW candidate: KF229 ↔ KF174  score=0.4563  hits=3
+  [LoopDetector] BoW candidate: KF230 ↔ KF94  score=0.4566  hits=3
+  [LoopDetector] BoW candidate: KF231 ↔ KF94  score=0.4495  hits=4
+  [LoopDetector] BoW candidate: KF232 ↔ KF94  score=0.4435  hits=5
+  [LoopDetector] BoW candidate: KF233 ↔ KF94  score=0.4469  hits=6
+  [LoopDetector] BoW candidate: KF234 ↔ KF170  score=0.4348  hits=4
+  [LoopDetector] BoW candidate: KF235 ↔ KF168  score=0.4471  hits=4
+  [LoopDetector] BoW candidate: KF236 ↔ KF168  score=0.4606  hits=5
+  [LoopDetector] BoW candidate: KF237 ↔ KF168  score=0.4564  hits=6
+  [LoopDetector] BoW candidate: KF238 ↔ KF168  score=0.4448  hits=7
+  [LoopDetector] BoW candidate: KF239 ↔ KF168  score=0.4397  hits=8
+  [LoopDetector] BoW candidate: KF240 ↔ KF140  score=0.4420  hits=8
+  [LoopDetector] BoW candidate: KF241 ↔ KF140  score=0.4443  hits=9
+  [LoopDetector] BoW candidate: KF242 ↔ KF140  score=0.4578  hits=10
+  [LoopDetector] BoW candidate: KF243 ↔ KF140  score=0.4562  hits=11
+  [LoopDetector] BoW candidate: KF244 ↔ KF193  score=0.4630  hits=7
+  [LoopDetector] BoW candidate: KF245 ↔ KF193  score=0.4459  hits=8
+  [LoopDetector] BoW candidate: KF246 ↔ KF192  score=0.4515  hits=7
+  [LoopDetector] BoW candidate: KF247 ↔ KF192  score=0.4334  hits=8
+  [LoopDetector] BoW candidate: KF248 ↔ KF192  score=0.4475  hits=9
+  [LoopDetector] BoW candidate: KF249 ↔ KF192  score=0.4314  hits=10
+[00:55:52]    800     -3.70   484.84    -66.62   372.47    265   49672      0    0 OK         60.6
+  [LoopDetector] BoW candidate: KF255 ↔ KF214  score=0.4307  hits=3
+  [LoopDetector] BoW candidate: KF256 ↔ KF214  score=0.4589  hits=4
+  [LoopDetector] BoW candidate: KF257 ↔ KF94  score=0.4479  hits=3
+  [LoopDetector] BoW candidate: KF258 ↔ KF94  score=0.4439  hits=4
+  [LoopDetector] BoW candidate: KF259 ↔ KF94  score=0.4362  hits=5
+  [LoopDetector] BoW candidate: KF260 ↔ KF94  score=0.4500  hits=6
+  [LoopDetector] BoW candidate: KF261 ↔ KF94  score=0.4440  hits=7
+  [LoopDetector] BoW candidate: KF262 ↔ KF227  score=0.4410  hits=4
+  [LoopDetector] BoW candidate: KF263 ↔ KF169  score=0.4438  hits=3
+  [LoopDetector] BoW candidate: KF264 ↔ KF169  score=0.4191  hits=4
+  [LoopDetector] BoW candidate: KF265 ↔ KF228  score=0.4630  hits=3
+  [LoopDetector] BoW candidate: KF266 ↔ KF242  score=0.4453  hits=4
+  [LoopDetector] BoW candidate: KF269 ↔ KF95  score=0.4397  hits=3
+  [LoopDetector] BoW candidate: KF270 ↔ KF95  score=0.4302  hits=4
+  [LoopDetector] BoW candidate: KF271 ↔ KF140  score=0.4379  hits=3
+[BA] scipy joint — obs=589 KFs=2 MPs=515 converged=False
+[LocalMapper] BA #3 — local_KFs=3 fixed_KFs=1 MPs=975
+  [LoopDetector] BoW candidate: KF275 ↔ KF170  score=0.4327  hits=3
+  [LoopDetector] BoW candidate: KF276 ↔ KF170  score=0.4626  hits=4
+  [LoopDetector] BoW candidate: KF277 ↔ KF170  score=0.4260  hits=5
+  [LoopDetector] BoW candidate: KF278 ↔ KF170  score=0.4364  hits=6
+  [LoopDetector] BoW candidate: KF279 ↔ KF170  score=0.4470  hits=7
+  [LoopDetector] BoW candidate: KF280 ↔ KF141  score=0.4314  hits=3
+  [LoopDetector] BoW candidate: KF281 ↔ KF94  score=0.4453  hits=4
+[00:55:58]    850    -52.92   489.73   -103.68   370.86    282   28837      0    0 OK         82.2
+  [LoopDetector] BoW candidate: KF284 ↔ KF95  score=0.4484  hits=3
+  [LoopDetector] BoW candidate: KF285 ↔ KF95  score=0.4290  hits=4
+  [LoopDetector] BoW candidate: KF286 ↔ KF95  score=0.4328  hits=5
+  [LoopDetector] BoW candidate: KF287 ↔ KF95  score=0.4206  hits=6
+  [LoopDetector] BoW candidate: KF288 ↔ KF95  score=0.4446  hits=7
+  [LoopDetector] BoW candidate: KF289 ↔ KF95  score=0.4374  hits=8
+  [LoopDetector] BoW candidate: KF290 ↔ KF95  score=0.4221  hits=9
+  [LoopDetector] BoW candidate: KF291 ↔ KF191  score=0.4452  hits=4
+  [LoopDetector] BoW candidate: KF296 ↔ KF193  score=0.4548  hits=3
+  [LoopDetector] BoW candidate: KF297 ↔ KF193  score=0.4443  hits=4
+[00:56:03]    900   -102.16   496.92   -148.33   368.65    299   32926      0    0 OK         80.3
+  [LoopDetector] BoW candidate: KF298 ↔ KF193  score=0.4445  hits=5
+  [LoopDetector] BoW candidate: KF299 ↔ KF193  score=0.4736  hits=6
+  [LoopDetector] BoW candidate: KF300 ↔ KF193  score=0.4600  hits=7
+  [LoopDetector] BoW candidate: KF301 ↔ KF193  score=0.4479  hits=8
+  [LoopDetector] BoW candidate: KF302 ↔ KF170  score=0.4482  hits=4
+  [LoopDetector] BoW candidate: KF303 ↔ KF171  score=0.4330  hits=3
+  [LoopDetector] BoW candidate: KF304 ↔ KF282  score=0.4338  hits=3
+  [LoopDetector] BoW candidate: KF306 ↔ KF257  score=0.4608  hits=3
+  [LoopDetector] BoW candidate: KF307 ↔ KF283  score=0.4725  hits=3
+  [LoopDetector] BoW candidate: KF309 ↔ KF244  score=0.4657  hits=3
+  [LoopDetector] BoW candidate: KF310 ↔ KF94  score=0.4501  hits=4
+  [LoopDetector] BoW candidate: KF311 ↔ KF170  score=0.4601  hits=3
+  [LoopDetector] BoW candidate: KF312 ↔ KF95  score=0.4899  hits=3
+  [LoopDetector] BoW candidate: KF313 ↔ KF177  score=0.4628  hits=3
+[00:56:09]    950   -151.15   497.61   -184.60   364.24    315   36953      0    0 OK         85.0
+  [LoopDetector] BoW candidate: KF315 ↔ KF172  score=0.4812  hits=3
+  [LoopDetector] BoW candidate: KF316 ↔ KF94  score=0.4880  hits=4
+  [LoopDetector] BoW candidate: KF319 ↔ KF244  score=0.4720  hits=3
+  [LoopDetector] BoW candidate: KF320 ↔ KF244  score=0.4676  hits=4
+  [LoopDetector] BoW candidate: KF324 ↔ KF193  score=0.4380  hits=3
+  [LoopDetector] BoW candidate: KF325 ↔ KF193  score=0.4657  hits=4
+  [LoopDetector] BoW candidate: KF326 ↔ KF193  score=0.4591  hits=5
+  [LoopDetector] BoW candidate: KF327 ↔ KF193  score=0.4550  hits=6
+  [LoopDetector] BoW candidate: KF328 ↔ KF193  score=0.4538  hits=7
+  [LoopDetector] BoW candidate: KF330 ↔ KF170  score=0.4493  hits=3
+[00:56:14]   1000   -162.18   450.27   -184.76   327.57    332   39687      0    0 OK         71.9
+  [LoopDetector] BoW candidate: KF331 ↔ KF308  score=0.4657  hits=3
+  [LoopDetector] BoW candidate: KF332 ↔ KF308  score=0.4930  hits=4
+  [LoopDetector] BoW candidate: KF333 ↔ KF308  score=0.4611  hits=5
+  [LoopDetector] BoW candidate: KF334 ↔ KF312  score=0.4334  hits=3
+  [LoopDetector] BoW candidate: KF335 ↔ KF312  score=0.4483  hits=4
+  [LoopDetector] BoW candidate: KF336 ↔ KF312  score=0.4668  hits=5
+  [LoopDetector] BoW candidate: KF337 ↔ KF312  score=0.4706  hits=6
+  [LoopDetector] BoW candidate: KF338 ↔ KF312  score=0.4788  hits=7
+  [LoopDetector] BoW candidate: KF339 ↔ KF312  score=0.4803  hits=8
+  [LoopDetector] BoW candidate: KF340 ↔ KF312  score=0.4993  hits=9
+  [LoopDetector] BoW candidate: KF341 ↔ KF312  score=0.4729  hits=10
+  [LoopDetector] BoW candidate: KF342 ↔ KF312  score=0.4576  hits=11
+  [LoopDetector] BoW candidate: KF343 ↔ KF312  score=0.4789  hits=12
+  [LoopDetector] BoW candidate: KF344 ↔ KF312  score=0.4839  hits=13
+  [LoopDetector] BoW candidate: KF345 ↔ KF312  score=0.4619  hits=14
+  [LoopDetector] BoW candidate: KF346 ↔ KF312  score=0.4664  hits=15
+  [LoopDetector] BoW candidate: KF347 ↔ KF312  score=0.4660  hits=16
+[00:56:20]   1050   -169.66   400.89   -182.30   280.49    349   42624      0    0 OK         90.9
+  [LoopDetector] BoW candidate: KF348 ↔ KF312  score=0.4571  hits=17
+  [LoopDetector] BoW candidate: KF349 ↔ KF312  score=0.4795  hits=18
+  [LoopDetector] BoW candidate: KF350 ↔ KF312  score=0.4675  hits=19
+  [LoopDetector] BoW candidate: KF351 ↔ KF316  score=0.4790  hits=9
+  [LoopDetector] BoW candidate: KF352 ↔ KF316  score=0.4810  hits=10
+  [LoopDetector] BoW candidate: KF353 ↔ KF316  score=0.4780  hits=11
+  [LoopDetector] BoW candidate: KF354 ↔ KF316  score=0.4881  hits=12
+  [LoopDetector] BoW candidate: KF355 ↔ KF316  score=0.4890  hits=13
+  [LoopDetector] BoW candidate: KF356 ↔ KF308  score=0.4856  hits=8
+  [LoopDetector] BoW candidate: KF358 ↔ KF315  score=0.4901  hits=3
+  [LoopDetector] BoW candidate: KF359 ↔ KF315  score=0.4946  hits=4
+  [LoopDetector] BoW candidate: KF360 ↔ KF315  score=0.5244  hits=5
+  [LoopDetector] BoW candidate: KF361 ↔ KF312  score=0.4993  hits=5
+  [LoopDetector] BoW candidate: KF362 ↔ KF312  score=0.4975  hits=6
+  [LoopDetector] BoW candidate: KF363 ↔ KF312  score=0.5143  hits=7
+  [LoopDetector] BoW candidate: KF364 ↔ KF312  score=0.4883  hits=8
+[00:56:25]   1100   -176.03   351.36   -179.44   233.05    365   45406      0    0 OK         80.7
+  [LoopDetector] BoW candidate: KF365 ↔ KF312  score=0.4906  hits=9
+  [LoopDetector] BoW candidate: KF366 ↔ KF312  score=0.4930  hits=10
+  [LoopDetector] BoW candidate: KF367 ↔ KF312  score=0.5086  hits=11
+  [LoopDetector] BoW candidate: KF368 ↔ KF312  score=0.5022  hits=12
+  [LoopDetector] BoW candidate: KF369 ↔ KF312  score=0.4918  hits=13
+  [LoopDetector] BoW candidate: KF370 ↔ KF312  score=0.4664  hits=14
+  [LoopDetector] BoW candidate: KF371 ↔ KF312  score=0.4542  hits=15
+  [LoopDetector] BoW candidate: KF372 ↔ KF312  score=0.4672  hits=16
+  [LoopDetector] BoW candidate: KF373 ↔ KF312  score=0.4550  hits=17
+  [LoopDetector] BoW candidate: KF374 ↔ KF312  score=0.4670  hits=18
+  [LoopDetector] BoW candidate: KF375 ↔ KF312  score=0.4699  hits=19
+  [LoopDetector] BoW candidate: KF381 ↔ KF351  score=0.4569  hits=3
+[00:56:31]   1150   -157.53   313.86   -164.25   215.57    382   50046      0    0 OK         91.6
+  [LoopDetector] BoW candidate: KF382 ↔ KF344  score=0.4590  hits=3
+  [LoopDetector] BoW candidate: KF384 ↔ KF316  score=0.4780  hits=3
+  [LoopDetector] BoW candidate: KF385 ↔ KF316  score=0.4833  hits=4
+  [LoopDetector] BoW candidate: KF386 ↔ KF316  score=0.4799  hits=5
+  [LoopDetector] BoW candidate: KF387 ↔ KF316  score=0.4884  hits=6
+  [LoopDetector] BoW candidate: KF388 ↔ KF354  score=0.4787  hits=4
+  [LoopDetector] BoW candidate: KF389 ↔ KF366  score=0.4622  hits=4
+  [LoopDetector] BoW candidate: KF390 ↔ KF360  score=0.4573  hits=4
+  [LoopDetector] BoW candidate: KF391 ↔ KF360  score=0.4828  hits=5
+  [LoopDetector] BoW candidate: KF392 ↔ KF360  score=0.5087  hits=6
+  [LoopDetector] BoW candidate: KF393 ↔ KF360  score=0.4938  hits=7
+  [LoopDetector] BoW candidate: KF394 ↔ KF360  score=0.5029  hits=8
+  [LoopDetector] BoW candidate: KF395 ↔ KF363  score=0.4998  hits=4
+  [LoopDetector] BoW candidate: KF396 ↔ KF366  score=0.4955  hits=4
+  [LoopDetector] BoW candidate: KF397 ↔ KF366  score=0.4847  hits=5
+[00:56:36]   1200   -108.48   305.27   -122.33   217.42    399   52867      0    0 OK         90.1
+  [LoopDetector] BoW candidate: KF401 ↔ KF316  score=0.4686  hits=3
+  [LoopDetector] BoW candidate: KF402 ↔ KF316  score=0.4766  hits=4
+  [LoopDetector] BoW candidate: KF406 ↔ KF363  score=0.4907  hits=3
+  [LoopDetector] BoW candidate: KF407 ↔ KF312  score=0.4548  hits=4
+  [LoopDetector] BoW candidate: KF408 ↔ KF312  score=0.4321  hits=5
+  [LoopDetector] BoW candidate: KF410 ↔ KF88  score=0.4557  hits=3
+[00:56:42]   1250    -65.93   316.17   -100.63   229.00    415   57311      0    0 OK        101.7
+  [LoopDetector] BoW candidate: KF416 ↔ KF184  score=0.4504  hits=3
+  [LoopDetector] BoW candidate: KF418 ↔ KF312  score=0.4472  hits=3
+  [LoopDetector] BoW candidate: KF419 ↔ KF312  score=0.4649  hits=4
+  [LoopDetector] BoW candidate: KF420 ↔ KF312  score=0.4605  hits=5
+  [LoopDetector] BoW candidate: KF421 ↔ KF312  score=0.4906  hits=6
+  [LoopDetector] BoW candidate: KF422 ↔ KF312  score=0.4620  hits=7
+  [LoopDetector] BoW candidate: KF425 ↔ KF283  score=0.4736  hits=3
+  [LoopDetector] BoW candidate: KF426 ↔ KF172  score=0.4737  hits=3
+  [LoopDetector] BoW candidate: KF427 ↔ KF172  score=0.4618  hits=4
+  [LoopDetector] BoW candidate: KF430 ↔ KF315  score=0.4593  hits=3
+[00:56:48]   1300    -23.15   328.26    -81.50   238.79    432   61437      0    0 OK         70.5
+  [LoopDetector] BoW candidate: KF431 ↔ KF315  score=0.4681  hits=4
+  [LoopDetector] BoW candidate: KF438 ↔ KF283  score=0.4706  hits=3
+  [LoopDetector] BoW candidate: KF439 ↔ KF274  score=0.4566  hits=3
+  [LoopDetector] BoW candidate: KF440 ↔ KF274  score=0.4474  hits=4
+  [LoopDetector] BoW candidate: KF445 ↔ KF274  score=0.4274  hits=3
+  [LoopDetector] BoW candidate: KF446 ↔ KF274  score=0.4569  hits=4
+  [LoopDetector] BoW candidate: KF447 ↔ KF274  score=0.4610  hits=5
+[00:56:53]   1350     26.22   320.99    -39.65   241.31    449   64907      0    0 OK        155.4
+  [LoopDetector] BoW candidate: KF453 ↔ KF395  score=0.4453  hits=3
+  [LoopDetector] BoW candidate: KF455 ↔ KF366  score=0.4392  hits=3
+  [LoopDetector] BoW candidate: KF463 ↔ KF366  score=0.4626  hits=3
+[00:57:00]   1400     64.44   312.54    -19.55   241.27    465   68306      0    0 OK         79.1
+  [LoopDetector] BoW candidate: KF475 ↔ KF387  score=0.4272  hits=3
+  [LoopDetector] BoW candidate: KF476 ↔ KF308  score=0.4095  hits=4
+  [LoopDetector] BoW candidate: KF479 ↔ KF353  score=0.4246  hits=3
+  [LoopDetector] BoW candidate: KF480 ↔ KF394  score=0.4081  hits=4
+[00:57:05]   1450     67.82   266.41    -14.30   208.10    482   70977      0    0 OK         98.0
+  [LoopDetector] BoW candidate: KF483 ↔ KF314  score=0.4006  hits=3
+  [LoopDetector] BoW candidate: KF484 ↔ KF394  score=0.4303  hits=3
+  [LoopDetector] BoW candidate: KF487 ↔ KF393  score=0.4397  hits=3
+  [LoopDetector] BoW candidate: KF489 ↔ KF315  score=0.4420  hits=3
+  [LoopDetector] BoW candidate: KF494 ↔ KF363  score=0.4633  hits=3
+  [LoopDetector] BoW candidate: KF496 ↔ KF316  score=0.4729  hits=3
+  [LoopDetector] BoW candidate: KF497 ↔ KF316  score=0.4548  hits=4
+[00:57:11]   1500     60.70   217.02    -11.06   146.38    499   73808      0    0 OK        107.5
+  [LoopDetector] BoW candidate: KF498 ↔ KF316  score=0.4436  hits=5
+  [LoopDetector] BoW candidate: KF499 ↔ KF316  score=0.4663  hits=6
+  [LoopDetector] BoW candidate: KF500 ↔ KF316  score=0.4903  hits=7
+  [LoopDetector] BoW candidate: KF501 ↔ KF316  score=0.4611  hits=8
+  [LoopDetector] BoW candidate: KF502 ↔ KF316  score=0.4541  hits=9
+  [LoopDetector] BoW candidate: KF503 ↔ KF316  score=0.4644  hits=10
+  [LoopDetector] BoW candidate: KF504 ↔ KF316  score=0.4848  hits=11
+  [LoopDetector] BoW candidate: KF506 ↔ KF315  score=0.4589  hits=3
+  [LoopDetector] BoW candidate: KF507 ↔ KF315  score=0.4937  hits=4
+  [LoopDetector] BoW candidate: KF508 ↔ KF315  score=0.4535  hits=5
+  [LoopDetector] BoW candidate: KF509 ↔ KF312  score=0.4486  hits=4
+  [LoopDetector] BoW candidate: KF510 ↔ KF312  score=0.4606  hits=5
+  [LoopDetector] BoW candidate: KF512 ↔ KF316  score=0.4487  hits=3
+  [LoopDetector] BoW candidate: KF513 ↔ KF360  score=0.4859  hits=3
+  [LoopDetector] BoW candidate: KF514 ↔ KF363  score=0.4757  hits=4
+[00:57:16]   1550     55.96   167.55     -7.14    96.22    515   77330      0    0 OK         89.1
+  [LoopDetector] BoW candidate: KF516 ↔ KF366  score=0.4937  hits=3
+  [LoopDetector] BoW candidate: KF517 ↔ KF366  score=0.4888  hits=4
+  [LoopDetector] BoW candidate: KF518 ↔ KF360  score=0.4748  hits=4
+  [LoopDetector] BoW candidate: KF519 ↔ KF360  score=0.4617  hits=5
+  [LoopDetector] BoW candidate: KF524 ↔ KF42  score=0.4570  hits=3
+  [LoopDetector] ✓ LOOP VERIFIED: KF524 ↔ KF42  inliers=72  score=0.4570
+[00:57:19] *** LOOP CLOSURE *** KF524 <-> KF42  geo_inliers=72  bow=0.4570
+
+[PGO] Loop constraint: KF524 ↔ KF42  inliers=72
+[PGO] KFs=525 min=0 max=524
+[PGO] ✓ Optimized 525 poses  1 loop edges  (20 iters)
+
+[00:57:22]   1600     99.19   146.54     22.91    90.75    532   80607      1    1 OK         73.9
+[00:57:27]   1650    140.98   122.09     65.83    85.06    549   84232      1    1 OK        100.2
+[00:57:33]   1700    165.67    80.55    104.87    61.22    565   87647      1    1 OK         80.0
+[00:57:38]   1750    183.25    33.83    137.40    36.27    582   90593      1    1 OK         74.6
+[00:57:44]   1800    205.20    -9.76    169.28    15.91    599   94029      1    1 OK         95.7
+[BA] scipy joint — obs=1307 KFs=3 MPs=975 converged=False
+[LocalMapper] BA #4 — local_KFs=3 fixed_KFs=2 MPs=970
+[00:57:49]   1850    245.51   -37.61    206.80    13.39    615   51764      1    1 OK         79.6
+  [LoopDetector] BoW candidate: KF624 ↔ KF363  score=0.4666  hits=4
+  [LoopDetector] BoW candidate: KF626 ↔ KF437  score=0.4487  hits=3
+  [LoopDetector] BoW candidate: KF627 ↔ KF364  score=0.4701  hits=3
+[00:57:55]   1900    288.02   -63.74    250.33     9.74    632   55732      1    1 OK        104.5
+  [LoopDetector] BoW candidate: KF632 ↔ KF355  score=0.4602  hits=3
+  [LoopDetector] BoW candidate: KF636 ↔ KF316  score=0.5158  hits=3
+  [LoopDetector] BoW candidate: KF637 ↔ KF316  score=0.5154  hits=4
+  [LoopDetector] BoW candidate: KF638 ↔ KF316  score=0.5211  hits=5
+  [LoopDetector] BoW candidate: KF639 ↔ KF363  score=0.5195  hits=5
+  [LoopDetector] BoW candidate: KF640 ↔ KF363  score=0.4975  hits=6
+  [LoopDetector] BoW candidate: KF641 ↔ KF363  score=0.4906  hits=7
+  [LoopDetector] BoW candidate: KF642 ↔ KF363  score=0.4883  hits=8
+  [LoopDetector] BoW candidate: KF643 ↔ KF312  score=0.4966  hits=5
+  [LoopDetector] BoW candidate: KF644 ↔ KF312  score=0.5194  hits=6
+  [LoopDetector] BoW candidate: KF645 ↔ KF360  score=0.4891  hits=4
+  [LoopDetector] BoW candidate: KF646 ↔ KF361  score=0.4556  hits=3
+[00:58:01]   1950    327.16   -91.47    274.44     7.49    649   59101      1    1 OK        128.2
+  [LoopDetector] BoW candidate: KF650 ↔ KF392  score=0.4903  hits=3
+  [LoopDetector] BoW candidate: KF652 ↔ KF316  score=0.4965  hits=3
+  [LoopDetector] BoW candidate: KF653 ↔ KF316  score=0.4869  hits=4
+  [LoopDetector] BoW candidate: KF654 ↔ KF366  score=0.4595  hits=4
+  [LoopDetector] BoW candidate: KF655 ↔ KF366  score=0.4825  hits=5
+  [LoopDetector] BoW candidate: KF656 ↔ KF387  score=0.4738  hits=3
+  [LoopDetector] BoW candidate: KF660 ↔ KF637  score=0.4817  hits=3
+  [LoopDetector] BoW candidate: KF661 ↔ KF637  score=0.4744  hits=4
+  [LoopDetector] BoW candidate: KF662 ↔ KF636  score=0.4947  hits=4
+  [LoopDetector] BoW candidate: KF663 ↔ KF636  score=0.4810  hits=5
+  [LoopDetector] BoW candidate: KF664 ↔ KF636  score=0.4743  hits=6
+[00:58:06]   2000    361.80   -58.29    280.27    40.56    665   62974      1    1 OK         67.7
+  [LoopDetector] BoW candidate: KF665 ↔ KF636  score=0.4662  hits=7
+  [LoopDetector] BoW candidate: KF669 ↔ KF637  score=0.4785  hits=3
+  [LoopDetector] BoW candidate: KF670 ↔ KF637  score=0.4840  hits=4
+  [LoopDetector] BoW candidate: KF672 ↔ KF638  score=0.4582  hits=3
+  [LoopDetector] BoW candidate: KF673 ↔ KF638  score=0.4616  hits=4
+  [LoopDetector] BoW candidate: KF674 ↔ KF363  score=0.4699  hits=3
+  [LoopDetector] BoW candidate: KF675 ↔ KF363  score=0.4586  hits=4
+  [LoopDetector] BoW candidate: KF676 ↔ KF363  score=0.4727  hits=5
+  [LoopDetector] BoW candidate: KF679 ↔ KF647  score=0.4754  hits=3
+[00:58:12]   2050    391.84   -18.56    284.03    91.36    682   66152      1    1 OK         64.1
+  [LoopDetector] BoW candidate: KF681 ↔ KF316  score=0.4854  hits=3
+  [LoopDetector] BoW candidate: KF683 ↔ KF395  score=0.4840  hits=3
+  [LoopDetector] BoW candidate: KF684 ↔ KF639  score=0.4863  hits=3
+  [LoopDetector] BoW candidate: KF685 ↔ KF639  score=0.4777  hits=4
+  [LoopDetector] BoW candidate: KF693 ↔ KF637  score=0.4520  hits=3
+  [LoopDetector] BoW candidate: KF696 ↔ KF274  score=0.4718  hits=3
+[00:58:17]   2100    426.19    16.93    291.17   134.26    699   70045      1    1 OK        125.7
+  [LoopDetector] BoW candidate: KF698 ↔ KF517  score=0.4745  hits=3
+  [LoopDetector] BoW candidate: KF699 ↔ KF366  score=0.4784  hits=3
+  [LoopDetector] BoW candidate: KF700 ↔ KF366  score=0.4693  hits=4
+  [LoopDetector] BoW candidate: KF701 ↔ KF636  score=0.4668  hits=4
+  [LoopDetector] BoW candidate: KF702 ↔ KF636  score=0.4776  hits=5
+  [LoopDetector] BoW candidate: KF703 ↔ KF647  score=0.4755  hits=3
+[00:58:23]   2150    422.60    59.67    272.24   156.07    715   74406      1    1 OK         73.1
+  [LoopDetector] BoW candidate: KF716 ↔ KF650  score=0.4448  hits=3
+  [LoopDetector] BoW candidate: KF717 ↔ KF650  score=0.4566  hits=4
+  [LoopDetector] BoW candidate: KF719 ↔ KF647  score=0.4453  hits=3
+  [LoopDetector] BoW candidate: KF720 ↔ KF647  score=0.4539  hits=4
+  [LoopDetector] BoW candidate: KF724 ↔ KF697  score=0.4452  hits=3
+  [LoopDetector] BoW candidate: KF725 ↔ KF697  score=0.4786  hits=4
+  [LoopDetector] BoW candidate: KF731 ↔ KF651  score=0.4510  hits=3
+[00:58:28]   2200    399.17   103.10    230.40   181.20    732   79165      1    1 OK         97.6
+  [LoopDetector] BoW candidate: KF733 ↔ KF650  score=0.4481  hits=3
+  [LoopDetector] BoW candidate: KF736 ↔ KF636  score=0.4608  hits=3
+  [LoopDetector] BoW candidate: KF737 ↔ KF636  score=0.4638  hits=4
+  [LoopDetector] BoW candidate: KF740 ↔ KF649  score=0.4646  hits=3
+  [LoopDetector] BoW candidate: KF741 ↔ KF650  score=0.4726  hits=3
+  [LoopDetector] BoW candidate: KF742 ↔ KF704  score=0.4802  hits=3
+  [LoopDetector] BoW candidate: KF743 ↔ KF652  score=0.4669  hits=4
+  [LoopDetector] BoW candidate: KF745 ↔ KF403  score=0.4430  hits=3
+[00:58:35]   2250    377.67   146.80    203.04   196.28    749   84697      1    1 OK        212.0
+  [LoopDetector] BoW candidate: KF749 ↔ KF633  score=0.4485  hits=3
+  [LoopDetector] BoW candidate: KF750 ↔ KF633  score=0.4605  hits=4
+  [LoopDetector] BoW candidate: KF751 ↔ KF636  score=0.4849  hits=3
+  [LoopDetector] BoW candidate: KF752 ↔ KF636  score=0.4826  hits=4
+  [LoopDetector] BoW candidate: KF753 ↔ KF636  score=0.4952  hits=5
+  [LoopDetector] BoW candidate: KF754 ↔ KF636  score=0.4637  hits=6
+  [LoopDetector] BoW candidate: KF756 ↔ KF396  score=0.4933  hits=3
+  [LoopDetector] BoW candidate: KF757 ↔ KF316  score=0.4992  hits=3
+  [LoopDetector] BoW candidate: KF758 ↔ KF316  score=0.4875  hits=4
+  [LoopDetector] BoW candidate: KF759 ↔ KF316  score=0.4828  hits=5
+  [LoopDetector] BoW candidate: KF760 ↔ KF316  score=0.4687  hits=6
+  [LoopDetector] BoW candidate: KF761 ↔ KF316  score=0.4684  hits=7
+  [LoopDetector] BoW candidate: KF762 ↔ KF316  score=0.4546  hits=8
+  [LoopDetector] BoW candidate: KF764 ↔ KF636  score=0.4793  hits=3
+[00:58:41]   2300    360.50   190.51    176.32   213.33    765   88513      1    1 OK         82.6
+  [LoopDetector] BoW candidate: KF765 ↔ KF636  score=0.5070  hits=4
+  [LoopDetector] BoW candidate: KF766 ↔ KF636  score=0.4911  hits=5
+  [LoopDetector] BoW candidate: KF767 ↔ KF638  score=0.4928  hits=3
+  [LoopDetector] BoW candidate: KF768 ↔ KF638  score=0.5019  hits=4
+  [LoopDetector] BoW candidate: KF770 ↔ KF640  score=0.5109  hits=3
+  [LoopDetector] BoW candidate: KF771 ↔ KF636  score=0.5068  hits=4
+  [LoopDetector] BoW candidate: KF772 ↔ KF394  score=0.5086  hits=5
+  [LoopDetector] BoW candidate: KF773 ↔ KF394  score=0.5010  hits=6
+  [LoopDetector] BoW candidate: KF775 ↔ KF312  score=0.5057  hits=3
+  [LoopDetector] BoW candidate: KF776 ↔ KF636  score=0.4970  hits=3
+  [LoopDetector] BoW candidate: KF777 ↔ KF316  score=0.4971  hits=3
+  [LoopDetector] BoW candidate: KF778 ↔ KF363  score=0.4767  hits=3
+[00:58:47]   2350    329.94   227.83    144.04   222.64    782   92200      1    1 OK        116.1
+  [LoopDetector] BoW candidate: KF782 ↔ KF636  score=0.4457  hits=3
+  [LoopDetector] BoW candidate: KF783 ↔ KF636  score=0.4582  hits=4
+  [LoopDetector] BoW candidate: KF784 ↔ KF636  score=0.4564  hits=5
+  [LoopDetector] BoW candidate: KF785 ↔ KF636  score=0.4614  hits=6
+  [LoopDetector] BoW candidate: KF786 ↔ KF636  score=0.4949  hits=7
+  [LoopDetector] BoW candidate: KF787 ↔ KF636  score=0.4825  hits=8
+  [LoopDetector] BoW candidate: KF788 ↔ KF636  score=0.4625  hits=9
+  [LoopDetector] BoW candidate: KF789 ↔ KF636  score=0.4810  hits=10
+  [LoopDetector] BoW candidate: KF790 ↔ KF636  score=0.4868  hits=11
+  [LoopDetector] BoW candidate: KF791 ↔ KF682  score=0.4359  hits=4
+  [LoopDetector] BoW candidate: KF793 ↔ KF637  score=0.4602  hits=3
+[00:58:52]   2400    287.74   254.39     96.18   219.90    799   95129      1    1 OK         87.9
+  [LoopDetector] BoW candidate: KF802 ↔ KF97  score=0.4799  hits=3
+  [LoopDetector] BoW candidate: KF803 ↔ KF740  score=0.4422  hits=4
+  [LoopDetector] BoW candidate: KF804 ↔ KF740  score=0.4422  hits=5
+  [LoopDetector] BoW candidate: KF805 ↔ KF740  score=0.4352  hits=6
+  [LoopDetector] BoW candidate: KF806 ↔ KF740  score=0.4298  hits=7
+  [LoopDetector] BoW candidate: KF807 ↔ KF740  score=0.4302  hits=8
+  [LoopDetector] BoW candidate: KF808 ↔ KF739  score=0.4402  hits=3
+  [LoopDetector] BoW candidate: KF809 ↔ KF89  score=0.4801  hits=3
+  [LoopDetector] BoW candidate: KF810 ↔ KF96  score=0.4733  hits=3
+  [LoopDetector] BoW candidate: KF811 ↔ KF730  score=0.4401  hits=3
+  [LoopDetector] BoW candidate: KF812 ↔ KF741  score=0.4289  hits=3
+[00:58:58]   2450    268.30   290.77     69.88   230.90    815  100943      1    1 OK         72.9
+  [LoopDetector] BoW candidate: KF816 ↔ KF133  score=0.4822  hits=3
+  [LoopDetector] ✓ LOOP VERIFIED: KF816 ↔ KF133  inliers=167  score=0.4822
+[00:58:59] *** LOOP CLOSURE *** KF816 <-> KF133  geo_inliers=167  bow=0.4822
+
+[PGO] Loop constraint: KF816 ↔ KF133  inliers=167
+[PGO] KFs=817 min=0 max=816
+[PGO] ✓ Optimized 817 poses  2 loop edges  (20 iters)
+
+[00:59:03]   2500    299.89   325.93     67.66   276.93    832  104744      2    2 OK         76.9
+[00:59:07]   2550    332.20   362.17     62.97   327.90    849  108958      2    2 OK         82.7
+[00:59:12]   2600    365.09   396.99     61.56   371.68    865  113760      2    2 OK         68.2
+[00:59:16]   2650    397.49   433.23     58.86   418.46    882  118806      2    2 OK         57.5
+[00:59:22]   2700    430.97   464.10     59.30   452.75    899  123724      2    2 OK        149.2
+[00:59:27]   2750    454.93   437.84     94.36   455.84    915  127009      2    2 OK         82.5
+  [LoopDetector] BoW candidate: KF928 ↔ KF636  score=0.4749  hits=3
+  [LoopDetector] BoW candidate: KF929 ↔ KF636  score=0.4742  hits=4
+[00:59:32]   2800    479.36   412.01    140.41   460.11    932  130470      2    2 OK         92.3
+  [LoopDetector] BoW candidate: KF935 ↔ KF765  score=0.4494  hits=3
+  [LoopDetector] BoW candidate: KF941 ↔ KF394  score=0.4640  hits=3
+[BA] scipy joint — obs=1185 KFs=3 MPs=970 converged=False
+[LocalMapper] BA #5 — local_KFs=3 fixed_KFs=3 MPs=743
+[00:59:38]   2850    512.34   401.79    174.56   476.63    949   82522      2    2 OK        138.8
+  [LoopDetector] BoW candidate: KF949 ↔ KF394  score=0.4921  hits=3
+  [LoopDetector] BoW candidate: KF951 ↔ KF392  score=0.5044  hits=3
+  [LoopDetector] BoW candidate: KF953 ↔ KF393  score=0.5165  hits=3
+  [LoopDetector] BoW candidate: KF954 ↔ KF360  score=0.5125  hits=3
+  [LoopDetector] BoW candidate: KF955 ↔ KF774  score=0.5123  hits=3
+  [LoopDetector] BoW candidate: KF956 ↔ KF774  score=0.5040  hits=4
+  [LoopDetector] BoW candidate: KF957 ↔ KF636  score=0.4878  hits=5
+  [LoopDetector] BoW candidate: KF958 ↔ KF636  score=0.4860  hits=6
+  [LoopDetector] BoW candidate: KF959 ↔ KF636  score=0.4898  hits=7
+  [LoopDetector] BoW candidate: KF960 ↔ KF636  score=0.4790  hits=8
+  [LoopDetector] BoW candidate: KF961 ↔ KF636  score=0.4847  hits=9
+  [LoopDetector] BoW candidate: KF962 ↔ KF636  score=0.4793  hits=10
+[00:59:44]   2900    520.72   366.57    196.24   463.74    965   86808      2    2 OK         69.8
+  [LoopDetector] BoW candidate: KF970 ↔ KF636  score=0.4337  hits=3
+  [LoopDetector] BoW candidate: KF972 ↔ KF653  score=0.4224  hits=3
+  [LoopDetector] BoW candidate: KF977 ↔ KF770  score=0.4778  hits=3
+  [LoopDetector] BoW candidate: KF978 ↔ KF644  score=0.4709  hits=4
+  [LoopDetector] BoW candidate: KF979 ↔ KF644  score=0.4714  hits=5
+  [LoopDetector] BoW candidate: KF980 ↔ KF644  score=0.4706  hits=6
+[00:59:49]   2950    510.71   319.47    228.18   424.39    982   89913      2    2 OK         65.4
+  [LoopDetector] BoW candidate: KF981 ↔ KF644  score=0.4774  hits=7
+  [LoopDetector] BoW candidate: KF982 ↔ KF644  score=0.4700  hits=8
+  [LoopDetector] BoW candidate: KF988 ↔ KF421  score=0.4660  hits=3
+  [LoopDetector] BoW candidate: KF989 ↔ KF421  score=0.4897  hits=4
+  [LoopDetector] BoW candidate: KF990 ↔ KF421  score=0.4711  hits=5
+  [LoopDetector] BoW candidate: KF995 ↔ KF769  score=0.4912  hits=3
+  [LoopDetector] BoW candidate: KF996 ↔ KF769  score=0.5053  hits=4
+[00:59:54]   3000    489.84   282.55    239.22   394.03    999   94810      2    2 OK        155.8
+  [LoopDetector] BoW candidate: KF1000 ↔ KF687  score=0.4831  hits=3
+  [LoopDetector] BoW candidate: KF1002 ↔ KF636  score=0.4645  hits=3
+  [LoopDetector] BoW candidate: KF1003 ↔ KF636  score=0.4738  hits=4
+  [LoopDetector] BoW candidate: KF1007 ↔ KF636  score=0.4770  hits=3
+  [LoopDetector] BoW candidate: KF1008 ↔ KF392  score=0.4795  hits=3
+  [LoopDetector] BoW candidate: KF1011 ↔ KF773  score=0.4637  hits=3
+[01:00:00]   3050    462.63   304.84    192.32   385.63   1015   98481      2    2 OK        104.0
+  [LoopDetector] BoW candidate: KF1018 ↔ KF98  score=0.4393  hits=3
+  [LoopDetector] BoW candidate: KF1019 ↔ KF98  score=0.4509  hits=4
+  [LoopDetector] BoW candidate: KF1023 ↔ KF809  score=0.4465  hits=3
+  [LoopDetector] BoW candidate: KF1024 ↔ KF809  score=0.4678  hits=4
+  [LoopDetector] BoW candidate: KF1025 ↔ KF801  score=0.4516  hits=3
+  [LoopDetector] BoW candidate: KF1026 ↔ KF801  score=0.4580  hits=4
+  [LoopDetector] BoW candidate: KF1027 ↔ KF801  score=0.4758  hits=5
+  [LoopDetector] BoW candidate: KF1028 ↔ KF801  score=0.4587  hits=6
+  [LoopDetector] BoW candidate: KF1029 ↔ KF801  score=0.4364  hits=7
+[01:00:05]   3100    438.31   330.72    146.39   383.17   1032  102538      2    2 OK         91.2
+  [LoopDetector] BoW candidate: KF1032 ↔ KF991  score=0.4489  hits=3
+  [LoopDetector] BoW candidate: KF1035 ↔ KF638  score=0.5005  hits=3
+  [LoopDetector] BoW candidate: KF1036 ↔ KF947  score=0.4864  hits=3
+[01:00:10]   3150    404.13   303.14    142.89   349.44   1049  106493      2    2 OK         90.8
+  [LoopDetector] BoW candidate: KF1061 ↔ KF636  score=0.4592  hits=3
+  [LoopDetector] BoW candidate: KF1064 ↔ KF947  score=0.4504  hits=3
+[01:00:15]   3200    372.75   266.07    146.15   293.88   1065  109729      2    2 OK         71.7
+  [LoopDetector] BoW candidate: KF1066 ↔ KF774  score=0.4737  hits=3
+[01:00:20]   3250    342.27   228.12    149.24   240.77   1082  112968      2    2 OK         77.7
+  [LoopDetector] BoW candidate: KF1081 ↔ KF638  score=0.5093  hits=3
+  [LoopDetector] BoW candidate: KF1082 ↔ KF638  score=0.5210  hits=4
+  [LoopDetector] BoW candidate: KF1083 ↔ KF638  score=0.4873  hits=5
+  [LoopDetector] BoW candidate: KF1087 ↔ KF363  score=0.4789  hits=3
+  [LoopDetector] BoW candidate: KF1088 ↔ KF363  score=0.4824  hits=4
+  [LoopDetector] BoW candidate: KF1089 ↔ KF363  score=0.4743  hits=5
+  [LoopDetector] BoW candidate: KF1090 ↔ KF363  score=0.4738  hits=6
+  [LoopDetector] BoW candidate: KF1091 ↔ KF363  score=0.4894  hits=7
+  [LoopDetector] BoW candidate: KF1092 ↔ KF363  score=0.4627  hits=8
+[01:00:26]   3300    311.47   214.27    137.43   222.17   1099  117189      2    2 OK         91.5
+  [LoopDetector] BoW candidate: KF1100 ↔ KF785  score=0.4869  hits=3
+  [LoopDetector] ✓ LOOP VERIFIED: KF1100 ↔ KF785  inliers=125  score=0.4869
+[01:00:27] *** LOOP CLOSURE *** KF1100 <-> KF785  geo_inliers=125  bow=0.4869
+
+[PGO] Loop constraint: KF1100 ↔ KF785  inliers=125
+[PGO] KFs=1101 min=0 max=1100
+[PGO] ✓ Optimized 1101 poses  3 loop edges  (20 iters)
+
+[01:00:31]   3350    279.12   241.87     90.73   220.26   1115  119694      3    3 OK         67.1
+[01:00:36]   3400    268.45   280.50     69.72   230.24   1132  126227      3    3 OK         56.3
+[01:00:43]   3450    269.60   320.98     54.58   245.27   1149  130677      3    3 OK        200.7
+[01:00:51]   3500    237.93   350.83      6.01   242.40   1165  133656      3    3 OK        124.4
+[BA] scipy joint — obs=954 KFs=3 MPs=743 converged=False
+[01:01:02]   3550    221.78   387.40    -13.53   246.23   1182  101872      3    3 OK        162.8
+[LocalMapper] BA #6 — local_KFs=4 fixed_KFs=3 MPs=898
+[01:01:09]   3600    255.49   419.88    -16.10   295.54   1199  105783      3    3 OK        122.6
+[LoopDetector] frame=3606 candidates=10 accepted=0
+[LoopDetector] frame=3609 candidates=10 accepted=0
+[LoopDetector] frame=3612 candidates=10 accepted=0
+[LoopDetector] frame=3615 candidates=10 accepted=0
+[LoopDetector] frame=3618 candidates=10 accepted=0
+[LoopDetector] frame=3621 candidates=10 accepted=0
+[LoopDetector] frame=3624 candidates=10 accepted=0
+[LoopDetector] frame=3627 candidates=10 accepted=0
+[LoopDetector] frame=3630 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1208 ↔ KF224  score=0.4678  hits=3
+  [LoopDetector] ✓ LOOP VERIFIED: KF1208 ↔ KF224  inliers=19  score=0.4678
+[01:01:14] *** LOOP CLOSURE *** KF1208 <-> KF224  geo_inliers=19  bow=0.4678
+
+[PGO] Loop constraint: KF1208 ↔ KF224  inliers=19
+[PGO] KFs=1209 min=0 max=1208
+[PGO] ✓ Optimized 1209 poses  4 loop edges  (20 iters)
+
+[01:01:18]   3650    290.30   453.43    -18.74   356.16   1215  109734      4    4 OK        129.3
+[01:01:27]   3700    296.41   491.15    -32.64   375.77   1232  115092      4    4 OK        110.5
+[01:01:35]   3750    261.40   521.69    -82.28   372.09   1249  118481      4    4 OK        196.4
+[01:01:44]   3800    226.36   552.32   -132.21   369.66   1265  123375      4    4 OK        110.5
+[01:01:52]   3850    190.27   582.06   -187.84   366.44   1282  127180      4    4 OK        106.4
+[01:01:59]   3900    158.91   617.25   -237.68   368.74   1299  131238      4    4 OK        186.2
+[LoopDetector] frame=3930 candidates=10 accepted=0
+[LoopDetector] frame=3933 candidates=10 accepted=0
+[LoopDetector] frame=3936 candidates=10 accepted=0
+[LoopDetector] frame=3939 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1311 ↔ KF316  score=0.4905  hits=3
+[LoopDetector] frame=3942 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1312 ↔ KF316  score=0.4815  hits=4
+[LoopDetector] frame=3945 candidates=10 accepted=0
+[LoopDetector] frame=3948 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1314 ↔ KF636  score=0.4916  hits=3
+[01:02:08]   3950    131.55   654.34   -258.51   371.06   1315  135420      4    4 OK        120.8
+[LoopDetector] frame=3951 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1315 ↔ KF636  score=0.4865  hits=4
+[LoopDetector] frame=3954 candidates=10 accepted=0
+[LoopDetector] frame=3957 candidates=10 accepted=0
+[LoopDetector] frame=3960 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1318 ↔ KF948  score=0.4889  hits=3
+[LoopDetector] frame=3963 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1319 ↔ KF316  score=0.5138  hits=3
+[LoopDetector] frame=3966 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1320 ↔ KF316  score=0.5180  hits=4
+[LoopDetector] frame=3969 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1321 ↔ KF316  score=0.5168  hits=5
+[LoopDetector] frame=3972 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1322 ↔ KF774  score=0.5030  hits=4
+[LoopDetector] frame=3975 candidates=10 accepted=0
+[LoopDetector] frame=3978 candidates=10 accepted=0
+[LoopDetector] frame=3981 candidates=10 accepted=0
+[LoopDetector] frame=3984 candidates=10 accepted=0
+[LoopDetector] frame=3987 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1327 ↔ KF316  score=0.4963  hits=3
+[LoopDetector] frame=3990 candidates=10 accepted=0
+[LoopDetector] frame=3993 candidates=10 accepted=0
+[LoopDetector] frame=3996 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1330 ↔ KF774  score=0.4782  hits=3
+[01:02:18]   4000     93.74   640.35   -270.35   341.71   1332  138996      4    4 OK        115.4
+[LoopDetector] frame=3999 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1331 ↔ KF976  score=0.4972  hits=4
+[LoopDetector] frame=4002 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1332 ↔ KF360  score=0.5022  hits=3
+[LoopDetector] frame=4005 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1333 ↔ KF769  score=0.5101  hits=3
+[LoopDetector] frame=4008 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1334 ↔ KF769  score=0.4993  hits=4
+[LoopDetector] frame=4011 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1335 ↔ KF769  score=0.4779  hits=5
+[LoopDetector] frame=4014 candidates=10 accepted=0
+[LoopDetector] frame=4017 candidates=10 accepted=0
+[LoopDetector] frame=4020 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1338 ↔ KF316  score=0.4627  hits=3
+[LoopDetector] frame=4023 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1339 ↔ KF316  score=0.5103  hits=4
+[LoopDetector] frame=4026 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1340 ↔ KF316  score=0.5103  hits=5
+[LoopDetector] frame=4029 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1341 ↔ KF316  score=0.4913  hits=6
+[LoopDetector] frame=4032 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1342 ↔ KF316  score=0.4894  hits=7
+[LoopDetector] frame=4035 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1343 ↔ KF316  score=0.4938  hits=8
+[LoopDetector] frame=4038 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1344 ↔ KF316  score=0.5081  hits=9
+[LoopDetector] frame=4041 candidates=10 accepted=0
+[LoopDetector] frame=4044 candidates=10 accepted=0
+[LoopDetector] frame=4047 candidates=10 accepted=0
+[01:02:26]   4050     64.53   600.81   -268.69   283.53   1349  141332      4    4 OK        136.7
+[LoopDetector] frame=4050 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1348 ↔ KF769  score=0.5052  hits=3
+[LoopDetector] frame=4053 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1349 ↔ KF769  score=0.4853  hits=4
+[LoopDetector] frame=4056 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1350 ↔ KF769  score=0.4899  hits=5
+[LoopDetector] frame=4059 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1351 ↔ KF316  score=0.4734  hits=3
+[LoopDetector] frame=4062 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1352 ↔ KF312  score=0.4744  hits=3
+[LoopDetector] frame=4065 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1353 ↔ KF1320  score=0.4931  hits=3
+[LoopDetector] frame=4068 candidates=10 accepted=0
+[LoopDetector] frame=4071 candidates=10 accepted=0
+[LoopDetector] frame=4074 candidates=10 accepted=0
+[LoopDetector] frame=4077 candidates=10 accepted=0
+[LoopDetector] frame=4080 candidates=10 accepted=0
+[LoopDetector] frame=4083 candidates=10 accepted=0
+[LoopDetector] frame=4086 candidates=10 accepted=0
+[LoopDetector] frame=4089 candidates=10 accepted=0
+[LoopDetector] frame=4092 candidates=10 accepted=0
+[LoopDetector] frame=4095 candidates=10 accepted=0
+[LoopDetector] frame=4098 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1364 ↔ KF1323  score=0.4682  hits=3
+[01:02:35]   4100     40.85   558.17   -253.37   223.70   1365  143465      4    4 OK        126.0
+[LoopDetector] frame=4101 candidates=10 accepted=0
+[LoopDetector] frame=4104 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1366 ↔ KF774  score=0.4998  hits=3
+[LoopDetector] frame=4107 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1367 ↔ KF774  score=0.5010  hits=4
+[LoopDetector] frame=4110 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1368 ↔ KF1339  score=0.5052  hits=4
+[LoopDetector] frame=4113 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1369 ↔ KF1339  score=0.5070  hits=5
+[LoopDetector] frame=4116 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1370 ↔ KF360  score=0.5306  hits=4
+[LoopDetector] frame=4119 candidates=10 accepted=0
+[LoopDetector] frame=4122 candidates=10 accepted=0
+[LoopDetector] frame=4125 candidates=10 accepted=0
+[LoopDetector] frame=4128 candidates=10 accepted=0
+[LoopDetector] frame=4131 candidates=10 accepted=0
+[LoopDetector] frame=4134 candidates=10 accepted=0
+[LoopDetector] frame=4137 candidates=10 accepted=0
+[LoopDetector] frame=4140 candidates=10 accepted=0
+[LoopDetector] frame=4143 candidates=10 accepted=0
+[LoopDetector] frame=4146 candidates=10 accepted=0
+[01:02:43]   4150     18.94   513.42   -226.52   168.96   1382  145796      4    4 OK        193.3
+[LoopDetector] frame=4149 candidates=10 accepted=0
+[LoopDetector] frame=4152 candidates=10 accepted=0
+[LoopDetector] frame=4155 candidates=10 accepted=0
+[LoopDetector] frame=4158 candidates=10 accepted=0
+[LoopDetector] frame=4161 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1385 ↔ KF773  score=0.4966  hits=3
+[LoopDetector] frame=4164 candidates=10 accepted=0
+[LoopDetector] frame=4167 candidates=10 accepted=0
+[LoopDetector] frame=4170 candidates=10 accepted=0
+[LoopDetector] frame=4173 candidates=10 accepted=0
+[LoopDetector] frame=4176 candidates=10 accepted=0
+[LoopDetector] frame=4179 candidates=10 accepted=0
+[LoopDetector] frame=4182 candidates=10 accepted=0
+[LoopDetector] frame=4185 candidates=10 accepted=0
+[LoopDetector] frame=4188 candidates=10 accepted=0
+[LoopDetector] frame=4191 candidates=10 accepted=0
+[LoopDetector] frame=4194 candidates=10 accepted=0
+[LoopDetector] frame=4197 candidates=10 accepted=0
+[01:02:51]   4200      5.60   465.36   -188.23   120.76   1399  148976      4    4 OK        157.4
+[LoopDetector] frame=4200 candidates=10 accepted=0
+[LoopDetector] frame=4203 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1399 ↔ KF312  score=0.5102  hits=3
+[LoopDetector] frame=4206 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1400 ↔ KF312  score=0.4948  hits=4
+[LoopDetector] frame=4209 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1401 ↔ KF774  score=0.4879  hits=3
+[LoopDetector] frame=4212 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1402 ↔ KF316  score=0.5108  hits=4
+[LoopDetector] frame=4215 candidates=10 accepted=0
+[LoopDetector] frame=4218 candidates=10 accepted=0
+[LoopDetector] frame=4221 candidates=10 accepted=0
+[LoopDetector] frame=4224 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1406 ↔ KF360  score=0.4966  hits=3
+[LoopDetector] frame=4227 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1407 ↔ KF360  score=0.5073  hits=4
+[LoopDetector] frame=4230 candidates=10 accepted=0
+[LoopDetector] frame=4233 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1409 ↔ KF774  score=0.4915  hits=3
+[LoopDetector] frame=4236 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1410 ↔ KF774  score=0.5158  hits=4
+[LoopDetector] frame=4239 candidates=10 accepted=0
+[LoopDetector] frame=4242 candidates=10 accepted=0
+[LoopDetector] frame=4245 candidates=10 accepted=0
+[LoopDetector] frame=4248 candidates=10 accepted=0
+[01:03:00]   4250     -0.63   415.84   -139.72    76.58   1415  152849      4    4 OK         84.3
+[LoopDetector] frame=4251 candidates=10 accepted=0
+[LoopDetector] frame=4254 candidates=10 accepted=0
+[LoopDetector] frame=4257 candidates=10 accepted=0
+[LoopDetector] frame=4260 candidates=10 accepted=0
+[LoopDetector] frame=4263 candidates=10 accepted=0
+[LoopDetector] frame=4266 candidates=10 accepted=0
+[LoopDetector] frame=4269 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1421 ↔ KF1329  score=0.4742  hits=3
+[LoopDetector] frame=4272 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1422 ↔ KF1329  score=0.4754  hits=4
+[LoopDetector] frame=4275 candidates=10 accepted=0
+[LoopDetector] frame=4278 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1424 ↔ KF1357  score=0.5136  hits=3
+[LoopDetector] frame=4281 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1425 ↔ KF1321  score=0.5241  hits=3
+[LoopDetector] frame=4284 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1426 ↔ KF1370  score=0.5171  hits=3
+[LoopDetector] frame=4287 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1427 ↔ KF947  score=0.5037  hits=3
+[LoopDetector] frame=4290 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1428 ↔ KF1384  score=0.5222  hits=3
+[LoopDetector] frame=4293 candidates=10 accepted=0
+[LoopDetector] frame=4296 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1430 ↔ KF1321  score=0.5141  hits=3
+[01:03:09]   4300     -6.38   366.26    -90.89    32.76   1432  156218      4    4 OK        160.0
+[LoopDetector] frame=4299 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1431 ↔ KF316  score=0.5011  hits=4
+[LoopDetector] frame=4302 candidates=10 accepted=0
+[LoopDetector] frame=4305 candidates=10 accepted=0
+[LoopDetector] frame=4308 candidates=10 accepted=0
+[LoopDetector] frame=4311 candidates=10 accepted=0
+[LoopDetector] frame=4314 candidates=10 accepted=0
+[LoopDetector] frame=4317 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1437 ↔ KF1369  score=0.5002  hits=3
+[LoopDetector] frame=4320 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1438 ↔ KF1410  score=0.4824  hits=3
+[LoopDetector] frame=4323 candidates=10 accepted=0
+[LoopDetector] frame=4326 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1440 ↔ KF316  score=0.4583  hits=3
+[LoopDetector] frame=4329 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1441 ↔ KF316  score=0.4711  hits=4
+[LoopDetector] frame=4332 candidates=10 accepted=0
+[LoopDetector] frame=4335 candidates=10 accepted=0
+[LoopDetector] frame=4338 candidates=10 accepted=0
+[LoopDetector] frame=4341 candidates=10 accepted=0
+[LoopDetector] frame=4344 candidates=10 accepted=0
+[LoopDetector] frame=4347 candidates=10 accepted=0
+[01:03:18]   4350    -13.03   316.80    -44.57    -8.69   1449  158997      4    4 OK        129.3
+[LoopDetector] frame=4350 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1448 ↔ KF360  score=0.5413  hits=3
+[LoopDetector] frame=4353 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1449 ↔ KF1407  score=0.5194  hits=4
+[LoopDetector] frame=4356 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1450 ↔ KF1407  score=0.5184  hits=5
+[LoopDetector] frame=4359 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1451 ↔ KF1379  score=0.5211  hits=5
+[LoopDetector] frame=4362 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1452 ↔ KF1379  score=0.5167  hits=6
+[LoopDetector] frame=4365 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1453 ↔ KF1379  score=0.5125  hits=7
+[LoopDetector] frame=4368 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1454 ↔ KF1384  score=0.4969  hits=6
+[LoopDetector] frame=4371 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1455 ↔ KF1428  score=0.5045  hits=4
+[LoopDetector] frame=4374 candidates=10 accepted=0
+[LoopDetector] frame=4377 candidates=10 accepted=0
+[LoopDetector] frame=4380 candidates=10 accepted=0
+[LoopDetector] frame=4383 candidates=10 accepted=0
+[LoopDetector] frame=4386 candidates=10 accepted=0
+[LoopDetector] frame=4389 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1461 ↔ KF1080  score=0.4993  hits=3
+[LoopDetector] frame=4392 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1462 ↔ KF1080  score=0.5098  hits=4
+[LoopDetector] frame=4395 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1463 ↔ KF1080  score=0.4937  hits=5
+[LoopDetector] frame=4398 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1464 ↔ KF638  score=0.4875  hits=3
+[01:03:27]   4400      9.26   281.37    -13.39   -10.52   1465  162985      4    4 OK        215.9
+[LoopDetector] frame=4401 candidates=10 accepted=0
+[LoopDetector] frame=4404 candidates=10 accepted=0
+[LoopDetector] frame=4407 candidates=10 accepted=0
+[LoopDetector] frame=4410 candidates=10 accepted=0
+[LoopDetector] frame=4413 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1469 ↔ KF650  score=0.4845  hits=3
+[LoopDetector] frame=4416 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1470 ↔ KF650  score=0.4903  hits=4
+[LoopDetector] frame=4419 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1471 ↔ KF364  score=0.4878  hits=3
+[LoopDetector] frame=4422 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1472 ↔ KF364  score=0.4870  hits=4
+[LoopDetector] frame=4425 candidates=10 accepted=0
+[LoopDetector] frame=4428 candidates=10 accepted=0
+[LoopDetector] frame=4431 candidates=10 accepted=0
+[LoopDetector] frame=4434 candidates=10 accepted=0
+[LoopDetector] frame=4437 candidates=10 accepted=0
+[LoopDetector] frame=4440 candidates=10 accepted=0
+[LoopDetector] frame=4443 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1479 ↔ KF312  score=0.4369  hits=3
+[LoopDetector] frame=4446 candidates=10 accepted=0
+[01:03:39]   4450     52.07   271.20     -0.71     2.02   1482  168189      4    4 OK        116.4
+[LoopDetector] frame=4449 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1481 ↔ KF316  score=0.4689  hits=3
+[LoopDetector] frame=4452 candidates=10 accepted=0
+[LoopDetector] frame=4455 candidates=10 accepted=0
+[LoopDetector] frame=4458 candidates=10 accepted=0
+[LoopDetector] frame=4461 candidates=10 accepted=0
+[LoopDetector] frame=4464 candidates=10 accepted=1
+  [LoopDetector] BoW candidate: KF1486 ↔ KF3  score=0.4203  hits=3
+  [LoopDetector] ✓ LOOP VERIFIED: KF1486 ↔ KF3  inliers=21  score=0.4203
+[01:03:42] *** LOOP CLOSURE *** KF1486 <-> KF3  geo_inliers=21  bow=0.4203
+
+[PGO] Loop constraint: KF1486 ↔ KF3  inliers=21
+[PGO] KFs=1487 min=0 max=1486
+[PGO] ✓ Optimized 1489 poses  5 loop edges  (20 iters)
+
+[01:03:50]   4500     86.97   303.26     -3.04    50.36   1499  171677      5    5 OK        161.9
+[LocalMapper] stopped | BA runs=5 | skipped=0 | pts culled=174634 | KFs culled=0
+[LoopDetector] stopped | PlaceRecognizer | DB=1090 entries | queries=1040 | candidates=429 | loops=611
+[01:04:01] Writing final poses (including PGO/BA corrections)...
+[01:04:01] ───────────────────────────────────────────────────────────────────────────────────────────────
+[01:04:01] 
+[01:04:01] === Run Summary ===
+[01:04:01]   Sequence          : 00
+[01:04:01]   Total frames      : 4541
+[01:04:01]   Keyframes         : 1512
+[01:04:01]   Map points        : 175299
+[01:04:01]   Loop closures     : 5
+[01:04:01]   PGO runs          : 5
+[01:04:01]   PGO backend       : PoseGraphOptimizer | backend=g2o | optimizations=5 | loop_edges=5 | minKF=0 | maxKF=1511 | count=1512
+[01:04:01]   Final state       : OK
+[01:04:01]   Total runtime     : 590.9s  (7.7 fps avg)
+[01:04:01]   BA runs           : 5
+[01:04:01]   Points culled     : 174634
+[01:04:01]   KFs culled        : 0
+[01:04:01] 
+[01:04:01] === Loop Detector Detail ===
+[01:04:01]   LoopDetector | BoW hits=611 | Verified=5 | Events=5
+[01:04:01]   Suppressed events : 421
+[01:04:01] 
+[01:04:01] === Evaluation Commands ===
+[01:04:01]   evo_ape kitti KITTI/poses/00.txt results_00.txt \
+[01:04:01]       --plot_mode xz --save_plot logs/ate_00_20260614_005405.pdf \
+[01:04:01]       --save_results logs/ate_00_20260614_005405.zip
+[01:04:01] 
+[01:04:01]   evo_traj kitti KITTI/poses/00.txt results_00.txt \
+[01:04:01]       --ref KITTI/poses/00.txt --plot_mode xz \
+[01:04:01]       --save_plot logs/traj_00_20260614_005405.pdf
+[01:04:01] 
+[01:04:01]   evo_rpe kitti KITTI/poses/00.txt results_00.txt \
+[01:04:01]       --delta 100 --delta_unit m \
+[01:04:01]       --save_plot logs/rpe_00_20260614_005405.pdf
+[01:04:01] 
+[01:04:01]   # Diagnose this run:
+[01:04:01]   python3 diagnose.py --log logs/run_00_20260614_005405.json
+[01:04:01] Done.  JSON → logs/run_00_20260614_005405.json

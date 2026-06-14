@@ -271,6 +271,33 @@ class TestSE3:
     def test_identity_rotation_angle(self):
         assert rotation_angle_deg(np.eye(3)) == pytest.approx(0.0, abs=1e-6)
 
+    def test_ba_pose_roundtrip(self):
+        try:
+            import g2o
+        except ImportError:
+            pytest.skip("g2o not installed")
+        
+        # 1. Create a random 4x4 SE3 T_world_cam
+        T_world_cam = np.eye(4)
+        T_world_cam[:3, :3] = cv2.Rodrigues(np.array([0.1, -0.2, 0.3]))[0]
+        T_world_cam[:3, 3] = [1.0, 2.0, 3.0]
+        
+        # 2. Convert it to g2o SE3Quat (T_cam_world convention)
+        T_cam_world = np.linalg.inv(T_world_cam)
+        pose = g2o.SE3Quat(T_cam_world[:3, :3], T_cam_world[:3, 3])
+        
+        # 3. Sets it as a VertexSE3Expmap estimate
+        v = g2o.VertexSE3Expmap()
+        v.set_estimate(pose)
+        
+        # 4. Reads it back and converts to T_world_cam
+        recovered_pose = v.estimate()
+        recovered_T_cam_world = recovered_pose.matrix()
+        recovered_T_world_cam = np.linalg.inv(recovered_T_cam_world)
+        
+        # 5. Asserts np.allclose(original, recovered, atol=1e-6)
+        np.testing.assert_allclose(T_world_cam, recovered_T_world_cam, atol=1e-6)
+
 
 # ═══════════════════════════════════════════════════════════════════════ #
 #  Full pipeline smoke test                                               #
