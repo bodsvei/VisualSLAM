@@ -5,13 +5,9 @@ Run the full VSLAM pipeline (VO + Local Mapping + Loop Detection + PGO + Map Reu
 
 Display layout (ORB-SLAM2 / Pangolin style)
 -------------------------------------------
-  Frame Viewer window: grayscale feed with yellow hollow-
-                        square brackets on every tracked keypoint, single
-                        dark status-bar at bottom:
-                        MAPPING | KF: N, LM: N, KP: N, track time: Nms
-  Map Viewer window (800x800): pure OpenCV render, dark background,
-                        red point cloud, green camera-frustum chevrons,
-                        trajectory spine.
+  Viewer window: Combined window showing the grayscale feed with tracked keypoints
+                 on the left, and the pure OpenCV render of the Map (trajectory,
+                 frustums, point cloud) on the right.
 
 Modes
 -----
@@ -629,7 +625,7 @@ def run(args):
 
             cur_feats = vo._last_features   # pts2d of current-frame keypoints
 
-            # ── Map Viewer (rebuild into separate 800x800 window) ─────── #
+            # ── Map Viewer (rebuild) ──────────────────────────────────── #
             if fid % 3 == 0 or map_last_frame < 0:
                 map_cache = render_map_viewer(
                     map_points  = vo.map_points,
@@ -657,9 +653,21 @@ def run(args):
                 panel_h    = FRAME_H,
             )
 
-            # ── Show separate windows ─────────────────────────────────── #
-            cv2.imshow("Frame Viewer", frame_panel)
-            cv2.imshow("Map Viewer", map_cache)
+            # ── Combine Windows ───────────────────────────────────────── #
+            # Stack the frame_panel and map_cache side-by-side
+            h1, w1 = frame_panel.shape[:2]
+            h2, w2 = map_cache.shape[:2]
+            max_h = max(h1, h2)
+            total_w = w1 + w2
+            
+            combined = np.zeros((max_h, total_w, 3), dtype=np.uint8)
+            # Place the frame viewer on the left
+            combined[:h1, :w1] = frame_panel
+            # Place the map viewer on the right
+            combined[:h2, w1:w1+w2] = map_cache
+
+            # Display as a single window
+            cv2.imshow("VSLAM Viewer (Frame + Map)", combined)
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):

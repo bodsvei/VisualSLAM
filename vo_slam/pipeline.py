@@ -354,10 +354,6 @@ class VisualOdometry:
                         current_T_world_cam_candidate = invert_pose(T_cam_world)
                         stats.num_inliers = len(inliers_pnp)
                         tracking_successful_pnp = True
-                        if self._lost_frames_count == 0:
-                            # Just log occasionally to avoid flooding
-                            if stats.frame_id % 50 == 0:
-                                print(f"  [Tracking] Frame {stats.frame_id}: PnP tracking successful with {len(inliers_pnp)} inliers")
                         
                         # Store relative for constant velocity prediction
                         self.last_T_rel = invert_pose(self.T_world_cam) @ current_T_world_cam_candidate

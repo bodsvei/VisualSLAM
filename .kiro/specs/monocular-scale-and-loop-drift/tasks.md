@@ -26,7 +26,7 @@ The workflow follows the bug condition methodology: exploration tests confirm th
 
 ## Phase 1: Bug Exploration (Confirm Bug Exists)
 
-- [ ] 1. Write bug condition exploration test
+- [x] 1. Write bug condition exploration test
   - **Property 1: Bug Condition** - Scale Drift and Loop Closure Suppression
   - **CRITICAL**: This test MUST FAIL on unfixed code — failure confirms the bugs exist
   - **GOAL**: Surface counterexamples that demonstrate scale drift accumulation and insufficient loop closure detections
@@ -59,7 +59,7 @@ The workflow follows the bug condition methodology: exploration tests confirm th
 
 ## Phase 2: Preservation Tests (Capture Non-Buggy Behavior)
 
-- [ ] 2. Write preservation property tests
+- [x] 2. Write preservation property tests
   - **Property 2: Preservation** - Valid Depth Estimation and Loop-Free Tracking
   - **CRITICAL**: Follow observation-first methodology — run unfixed code first to observe actual behavior
   - **GOAL**: Write property-based tests capturing behavior that should NOT change after the fix
@@ -109,9 +109,9 @@ The workflow follows the bug condition methodology: exploration tests confirm th
 
 ## Phase 3: Implementation
 
-- [ ] 3. Fix scale estimation and loop closure detection
+- [x] 3. Fix scale estimation and loop closure detection
 
-  - [ ] 3.1 Implement robust outlier-resistant depth filtering for scale estimation
+  - [x] 3.1 Implement robust outlier-resistant depth filtering for scale estimation
     - **Specification Reference**: Expected Behavior 2.1 & 2.4 (from bugfix.md)
     - **Task**: Replace naive median-of-depths with statistical outlier-robust filtering
     - **Implementation Details**:
@@ -148,7 +148,7 @@ The workflow follows the bug condition methodology: exploration tests confirm th
     - _Preservation: maintain_fallback_scale_1_0, preserve_clean_depth_estimates [bugfix.md 3.1, 3.6]_
     - _Requirements: 1.1, 1.4, 2.1, 2.4, 3.1, 3.6_
 
-  - [ ] 3.2 Refine loop closure detection thresholds and temporal dead zone
+  - [x] 3.2 Refine loop closure detection thresholds and temporal dead zone
     - **Specification Reference**: Expected Behavior 2.2 & 2.3 (from bugfix.md)
     - **Task**: Reduce temporal dead zone and refine BoW matching thresholds to enable more frequent loop closures
     - **Implementation Details**:
@@ -187,7 +187,7 @@ The workflow follows the bug condition methodology: exploration tests confirm th
     - _Preservation: prevent_redundant_constraint_flooding, maintain_pose_stability [bugfix.md 3.7]_
     - _Requirements: 1.2, 1.3, 2.2, 2.3, 3.7_
 
-  - [ ] 3.3 Integrate outlier filtering and loop closure improvements into full pipeline
+  - [x] 3.3 Integrate outlier filtering and loop closure improvements into full pipeline
     - **Task**: Combine fixes from 3.1 and 3.2; test integration
     - **Implementation Details**:
       - Ensure robust depth filtering runs in scale estimation path
@@ -208,7 +208,7 @@ The workflow follows the bug condition methodology: exploration tests confirm th
 
 ## Phase 4: Validation
 
-- [ ] 3.4 Verify bug condition exploration test now passes
+- [x] 3.4 Verify bug condition exploration test now passes
   - **Property 1: Expected Behavior** - Scale Stability and Loop Closure Success
   - **CRITICAL**: Re-run the SAME test from task 1 — do NOT write a new test
   - **IMPORTANT**: The test from task 1 encodes the expected behavior; passing confirms the fix works
@@ -231,7 +231,7 @@ The workflow follows the bug condition methodology: exploration tests confirm th
   - Mark task complete when test passes and metrics meet criteria
   - _Requirements: 2.1, 2.2, 2.4_
 
-- [ ] 3.5 Verify preservation tests still pass
+- [x] 3.5 Verify preservation tests still pass
   - **Property 2: Preservation** - Unchanged Behavior Verified
   - **CRITICAL**: Re-run the SAME tests from task 2 — do NOT write new tests
   - **Process**:
@@ -250,7 +250,7 @@ The workflow follows the bug condition methodology: exploration tests confirm th
   - mark task complete when all preservation tests pass
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7_
 
-- [ ] 3.6 Comprehensive integration test: Scale + Loop Closure Synergy
+- [x] 3.6 Comprehensive integration test: Scale + Loop Closure Synergy
   - **Task**: Verify fixes work together holistically
   - **Process**:
     - Run full KITTI sequence with both robust depth filtering and refined loop closure
@@ -269,20 +269,20 @@ The workflow follows the bug condition methodology: exploration tests confirm th
 
 ## Phase 5: Checkpoint
 
-- [ ] 4. Checkpoint - Ensure all tests pass
+- [x] 4. Checkpoint - Ensure all tests pass
   - **Task**: Final verification before marking bugfix complete
   - **Checklist**:
-    - [ ] Bug condition exploration test: PASSES (confirms bug fixed)
-    - [ ] All preservation tests: PASS (confirms no regressions)
-    - [ ] Integration test: PASSES (confirms synergy)
-    - [ ] APE/RPE metrics: Improved vs baseline (< 100m APE target met)
-    - [ ] Code compiles without warnings
-    - [ ] All diagnostics logs clean (no unexpected errors)
+    - [x] Bug condition exploration test: PASSES (confirms bug fixed)
+    - [x] All preservation tests: PASS (confirms no regressions)
+    - [x] Integration test: PASSES (confirms synergy)
+    - [x] APE/RPE metrics: Improved vs baseline (< 100m APE target met)
+    - [x] Code compiles without warnings
+    - [x] All diagnostics logs clean (no unexpected errors)
   - **Acceptance**: All checkboxes above must be satisfied
   - **Resolution**: If any item fails:
-    - [ ] Rerun task 3.x to investigate and fix issue
-    - [ ] Document root cause
-    - [ ] Re-validate with tests
+    - [x] Rerun task 3.x to investigate and fix issue
+    - [x] Document root cause
+    - [x] Re-validate with tests
   - mark task complete when all items verified
 
 ---
