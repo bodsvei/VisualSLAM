@@ -24,9 +24,9 @@ Currently, the pipeline processes stereo image pairs to estimate camera trajecto
 ## Current Performance
 
 Evaluated on **KITTI Sequence 00**:
-- **APE RMSE:** 86.94 m (Significant improvement from 128.7 m monocular baseline)
-- **Scale Factor:** 0.671× (Ongoing calibration tuning)
-- **Pitch Residual:** −31° 
+- **APE RMSE:** 13.92 m (Significant improvement from 86.94 m previous baseline)
+- **Scale Factor:** 1.027× (Calibration successfully tuned)
+- **Pitch Residual:** −0.45° 
 
 ---
 
