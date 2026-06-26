@@ -570,9 +570,12 @@ def run(args):
     elif args.webcam:
         source = webcam_loader()
     else:
-        print("No source — running synthetic scene demo.")
-        source = SyntheticScene(camera)
-
+        print("Error: No source specified.")
+        print("Please provide one of the following arguments:")
+        print("  --kitti <path> : Path to KITTI image_0 folder")
+        print("  --video <path> : Path to video file")
+        print("  --webcam       : Use webcam (device 0)")
+        sys.exit(1)
     # ── Visualisation state ───────────────────────────────────────────── #
     show_gui     = not args.no_gui
     blurry_count = 0
