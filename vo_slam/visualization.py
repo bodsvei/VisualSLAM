@@ -464,6 +464,16 @@ def plot_trajectory_static(
                 zorder=7,
             )
 
+        if len(trajectory) > 1:
+            t_x = trajectory[:, ix]
+            t_y = trajectory[:, iy]
+            span_x = t_x.max() - t_x.min()
+            span_y = t_y.max() - t_y.min()
+            margin = max(span_x, span_y, 1.0) * 0.05
+            
+            ax.set_xlim(t_x.min() - margin, t_x.max() + margin)
+            ax.set_ylim(t_y.min() - margin, t_y.max() + margin)
+
         ax.legend(fontsize=9, facecolor="black", labelcolor="white", loc='lower right', edgecolor="white")
 
     ax1.set_title("Top-down (X–Z)", color="white", fontsize=12, weight='bold')
