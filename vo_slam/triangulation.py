@@ -170,7 +170,7 @@ class Triangulator:
         disparity = pts_l[:, 0] - pts_r[:, 0]
         
         # Filter negative or too-small disparity
-        valid = disparity > 0.1
+        valid = disparity >= 5.0
         if not valid.any():
             return []
             

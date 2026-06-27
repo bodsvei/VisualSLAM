@@ -254,9 +254,9 @@ class PoseGraphOptimizer:
                 print(f"[PGO] Missing loop vertex {mid}->{qid}")
                 continue
 
-            # Bug 3: Use the actual measurement from loop_detector.
-            # lc["T_rel"] is already T_{query_cam <- match_cam}, which is exactly what g2o expects.
-            T_meas = lc["T_rel"]
+            # Bug 3: Convert T_rel to the expected frame convention.
+            from .motion import invert_pose
+            T_meas = invert_pose(lc["T_rel"])
             e = self._create_edge(g2o) # Use correct probed edge [Fix 2]
             e.set_vertex(0, v0)
             e.set_vertex(1, v1)

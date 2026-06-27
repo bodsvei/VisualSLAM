@@ -252,6 +252,7 @@ class FeatureMatcher:
         left       : FrameFeatures,
         right      : FrameFeatures,
         max_y_delta: float = 2.0,
+        max_disparity: float = 128.0,
     ) -> MatchResult:
         """
         Match left -> right with stereo constraints.
@@ -276,7 +277,8 @@ class FeatureMatcher:
                 continue
 
             # positive disparity constraint (u_left > u_right)
-            if pt_l[0] <= pt_r[0]:
+            disp = pt_l[0] - pt_r[0]
+            if disp <= 0 or disp > max_disparity:
                 continue
 
             stereo_good.append(m)

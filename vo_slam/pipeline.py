@@ -300,7 +300,7 @@ class VisualOdometry:
             if len(stereo_matches) > 10:
                 # bf = baseline * fx
                 disp = stereo_matches.pts_ref[:, 0] - stereo_matches.pts_cur[:, 0]
-                valid = disp > 0.1
+                valid = disp >= 5.0
                 if valid.any():
                     z = self.camera.bf / disp[valid]
                     cur_depths = {int(idx): float(depth) for idx, depth in zip(stereo_matches.idx_ref[valid], z)}

@@ -49,13 +49,23 @@ def setup_logger(log_path: Path) -> logging.Logger:
 #  KITTI helpers                                                          #
 # ═══════════════════════════════════════════════════════════════════════ #
 
-def load_calib(path: Path) -> np.ndarray:
+def load_calib(path: Path):
+    P0 = None
+    P1 = None
     with open(path) as f:
         for line in f:
             if line.startswith("P0:"):
-                vals = list(map(float, line.strip().split()[1:]))
-                return np.array(vals).reshape(3, 4)[:3, :3]
-    raise ValueError("P0 not found in calib.txt")
+                P0 = np.array(list(map(float, line.strip().split()[1:]))).reshape(3, 4)
+            elif line.startswith("P1:"):
+                P1 = np.array(list(map(float, line.strip().split()[1:]))).reshape(3, 4)
+                
+    if P0 is None or P1 is None:
+        raise ValueError("P0 or P1 not found in calib.txt")
+        
+    K = P0[:3, :3]
+    fx = K[0, 0]
+    baseline = -P1[0, 3] / fx
+    return K, baseline
 
 
 def load_poses(path: Path):
@@ -195,7 +205,7 @@ def run(args):
     images_r = sorted(IMG_DIR_R.glob("*.png"))[:len(images_l)]
 
     log.info(f"")
-    log.info(f"Sequence {SEQ}: {len(images)} frames  |  {len(gt)} GT poses")
+    log.info(f"Sequence {SEQ}: {len(images_l)} frames  |  {len(gt)} GT poses")
     log.info(f"{'─'*95}")
     log.info(
         f"{'Frame':>6}  {'est_x':>8} {'est_z':>8}  "
@@ -204,10 +214,11 @@ def run(args):
     )
     log.info(f"{'─'*95}")
 
-    for i, img_path in enumerate(images):
+    for i, img_path in enumerate(images_l):
         img   = cv2.imread(str(img_path))
+        img_r = cv2.imread(str(images_r[i]))
         t0    = time.perf_counter()
-        stats = vo.process(img, timestamp=i / 10.0)
+        stats = vo.process(img, img_right=img_r, timestamp=i / 10.0)
         dt_ms = (time.perf_counter() - t0) * 1000
 
         # Sanity check for Bug B: Y-axis explosion
@@ -277,7 +288,7 @@ def run(args):
     log.info(f"")
     log.info(f"=== Run Summary ===")
     log.info(f"  Sequence          : {SEQ}")
-    log.info(f"  Total frames      : {len(images)}")
+    log.info(f"  Total frames      : {len(images_l)}")
     log.info(f"  Keyframes         : {len(vo.keyframes)}")
     log.info(f"  Map points        : {len(vo.map_points)}")
     log.info(f"  Loop closures     : {len(loop_events_received)}")
@@ -285,7 +296,7 @@ def run(args):
     log.info(f"  PGO backend       : {pgo.summary()}")
     log.info(f"  Final state       : {vo.state.name}")
     log.info(f"  Total runtime     : {total_time:.1f}s  "
-             f"({len(images)/total_time:.1f} fps avg)")
+             f"({len(images_l)/total_time:.1f} fps avg)")
     if mapper:
         log.info(f"  BA runs           : {mapper.n_ba_runs}")
         log.info(f"  Points culled     : {mapper.n_pts_culled}")
@@ -318,9 +329,9 @@ def run(args):
         "meta": {
             "sequence"       : SEQ,
             "timestamp"      : timestamp,
-            "total_frames"   : len(images),
+            "total_frames"   : len(images_l),
             "total_runtime_s": round(total_time, 2),
-            "avg_fps"        : round(len(images) / total_time, 2),
+            "avg_fps"        : round(len(images_l) / total_time, 2),
         },
         "config": {
             "scale_mode"         : cfg.scale_mode,
