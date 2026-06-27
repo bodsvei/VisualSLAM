@@ -104,7 +104,7 @@ class CameraModel:
             [0.0,     718.856, 185.216],
             [0.0,     0.0,     1.0    ],
         ], dtype=np.float64)
-        return cls.from_matrix(K, width=1241, height=376)
+        return cls.from_matrix(K, width=1241, height=376, baseline=0.537)
 
     # ------------------------------------------------------------------ #
     #  Core operations                                                     #

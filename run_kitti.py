@@ -185,7 +185,14 @@ def run(args):
     t_run_start = time.perf_counter()
 
     # ── Run ───────────────────────────────────────────────────────────── #
-    images      = sorted(IMG_DIR.glob("*.png"))
+    IMG_DIR_L = KITTI_ROOT / "sequences" / SEQ / "image_0"
+    IMG_DIR_R = KITTI_ROOT / "sequences" / SEQ / "image_1"
+    img_paths = sorted(IMG_DIR_L.glob("*.png"))
+    if getattr(args, "max_frames", None):
+        img_paths = img_paths[:args.max_frames]
+    
+    images_l = img_paths
+    images_r = sorted(IMG_DIR_R.glob("*.png"))[:len(images_l)]
 
     log.info(f"")
     log.info(f"Sequence {SEQ}: {len(images)} frames  |  {len(gt)} GT poses")
@@ -361,8 +368,10 @@ if __name__ == "__main__":
     p.add_argument("--seq",           default="00",    help="Sequence ID (00–10)")
     p.add_argument("--no-loop",       action="store_true", help="Disable loop detection")
     p.add_argument("--no-local-map",  action="store_true", help="Disable local BA")
-    p.add_argument("--save-vocab",    type=str,        help="Save vocabulary to .pkl")
-    p.add_argument("--load-vocab",    type=str,        help="Load vocabulary from .pkl")
-    p.add_argument("--min-loop-gap",  type=int, default=200,
-                   help="Frames between loop callbacks (dead zone, default 200)")
-    run(p.parse_args())
+    p.add_argument("--save-vocab",    default=None,  help="Save vocabulary to .pkl")
+    p.add_argument("--load-vocab",    default=None,  help="Load vocabulary from .pkl")
+    p.add_argument("--min-loop-gap",  type=int, default=200, help="Frames between loop callbacks (dead zone, default 200)")
+    p.add_argument("--max-frames",    type=int, default=None, help="Maximum number of frames to process (for dry runs)")
+    args = p.parse_args()
+    
+    run(args)

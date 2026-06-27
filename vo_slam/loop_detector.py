@@ -140,7 +140,7 @@ class LoopDetector:
         self.vocab_build_at   = vocab_build_at
         self.min_loop_gap_frames = min_loop_gap_frames
 
-        self._last_loop_kf_id = -1000
+        self._last_loop_frame_id = -10000
         self._recognizer  : Optional[PlaceRecognizer] = None
         if vocab is not None and vocab.is_built:
             self._recognizer = PlaceRecognizer(
@@ -202,7 +202,7 @@ class LoopDetector:
 
     def _process_keyframe(self, kf):
         """Main processing for one keyframe."""
-        if kf.kf_id - self._last_loop_kf_id < self.min_loop_gap_frames:
+        if kf.frame_id - self._last_loop_frame_id < self.min_loop_gap_frames:
             self.n_suppressed += 1
             return
 
@@ -254,7 +254,7 @@ class LoopDetector:
         if event is None:
             return
 
-        self._last_loop_kf_id = kf.kf_id
+        self._last_loop_frame_id = kf.frame_id
         self.n_geo_verified += 1
         self.loop_events.append(event)
 

@@ -1,0 +1,9 @@
+evo_ape kitti dataset/poses/00.txt results_00.txt \
+    --plot_mode xz --save_plot results/00/ate_00.pdf \
+    --save_results results/00/ate_00.zip
+evo_traj kitti dataset/poses/00.txt results_00.txt \
+    --ref dataset/poses/00.txt --plot_mode xz \
+    --save_plot results/00/traj_00.pdf
+evo_rpe kitti dataset/poses/00.txt results_00.txt \
+    --delta 100 --delta_unit m \
+    --save_plot results/00/rpe_00.pdf

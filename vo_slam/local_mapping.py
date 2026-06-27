@@ -184,8 +184,8 @@ class LocalMapper:
             T_old = old_poses.get(latest_kf.kf_id)
             if T_old is not None:
                 # Correction from the latest keyframe in the window
-                corr = latest_kf.T_world_cam @ np.linalg.inv(T_old)
-                self.vo.T_world_cam = corr @ self.vo.T_world_cam
+                corr_local = np.linalg.inv(T_old) @ latest_kf.T_world_cam
+                self.vo.T_world_cam = self.vo.T_world_cam @ corr_local
 
         # Step 6: cull
         with self._lock:

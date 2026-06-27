@@ -210,6 +210,7 @@ class PoseGraphOptimizer:
             f"max={max(k.kf_id for k in kfs)}"
         )
 
+        print("  [DEBUG PGO] Adding odometry edges...")
         # ── Sequential odometry edges ────────────────────────────────── #
         for i in range(1, len(kfs)):
             prev_kf = kfs[i - 1]
@@ -234,9 +235,10 @@ class PoseGraphOptimizer:
             e.set_vertex(0, v0)
             e.set_vertex(1, v1)
             e.set_measurement(g2o.SE3Quat(T_rel[:3,:3], T_rel[:3,3]))
-            e.set_information(np.eye(6) * 0.5)
+            # e.set_information(np.eye(6) * 0.5)  # Disabled: Causes segfault in g2o-python bindings
             optimizer.add_edge(e)
 
+        print("  [DEBUG PGO] Adding loop edges...")
         # ── Loop closure edges ───────────────────────────────────────── #
         n_added = 0
         for lc in self.loop_edges:
@@ -252,15 +254,14 @@ class PoseGraphOptimizer:
                 print(f"[PGO] Missing loop vertex {mid}->{qid}")
                 continue
 
-            # Bug 3: Convert T_rel to the expected frame convention.
-            # The diagnostic indicates that passing T_rel directly results in an inverted rotation.
-            from .motion import invert_pose
-            T_meas = invert_pose(lc["T_rel"])
+            # Bug 3: Use the actual measurement from loop_detector.
+            # lc["T_rel"] is already T_{query_cam <- match_cam}, which is exactly what g2o expects.
+            T_meas = lc["T_rel"]
             e = self._create_edge(g2o) # Use correct probed edge [Fix 2]
             e.set_vertex(0, v0)
             e.set_vertex(1, v1)
             e.set_measurement(g2o.SE3Quat(T_meas[:3,:3], T_meas[:3,3]))
-            e.set_information(lc["information"])
+            # e.set_information(lc["information"]) # Disabled: Causes segfault in g2o-python bindings
 
             # Robust kernel binding safety wrapper [Fix 6]
             try:
@@ -276,7 +277,9 @@ class PoseGraphOptimizer:
         if n_added == 0:
             return PGOResult(False, len(kfs), 0, 0)
 
+        print("  [DEBUG PGO] Initializing optimization...")
         optimizer.initialize_optimization()
+        print("  [DEBUG PGO] Optimizing...")
         optimizer.set_verbose(self.verbose)
         optimizer.optimize(self.n_iters)
         self.n_optimizations += 1
